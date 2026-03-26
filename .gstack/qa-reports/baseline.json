@@ -1,0 +1,20 @@
+{
+  "date": "2026-03-26",
+  "url": "http://localhost:8080",
+  "healthScore": 82,
+  "issues": [
+    {"id": "ISSUE-001", "title": "Live GitHub Pages site returns 404", "severity": "high", "category": "functional"},
+    {"id": "ISSUE-002", "title": "Service worker scope mismatch for local testing", "severity": "medium", "category": "functional"},
+    {"id": "ISSUE-003", "title": "Icon purpose field uses combined value", "severity": "low", "category": "functional"}
+  ],
+  "categoryScores": {
+    "console": 100,
+    "links": 100,
+    "visual": 100,
+    "functional": 70,
+    "ux": 100,
+    "performance": 100,
+    "content": 100,
+    "accessibility": 100
+  }
+}
