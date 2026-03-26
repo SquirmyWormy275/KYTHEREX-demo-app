@@ -19,7 +19,16 @@ All data is pre-baked from public sources (BBER Q1 2025, MT DOR FY2023, IDL roll
 
 Pull it up on your phone. Tap a feature. Show someone what the product looks like. End screen has contact info and pricing.
 
-Works on any device with a browser. No install needed.
+Works on any device with a browser.
+
+## Install on iPhone
+
+1. Open [squirmywormy275.github.io/KYTHEREX-demo-app](https://squirmywormy275.github.io/KYTHEREX-demo-app) in Safari
+2. Tap the Share button (square with arrow)
+3. Tap "Add to Home Screen"
+4. Tap "Add"
+
+The app launches full-screen and works offline. Updates happen automatically when you open it with an internet connection.
 
 ## Tech
 
