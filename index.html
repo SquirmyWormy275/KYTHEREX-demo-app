@@ -30,6 +30,20 @@
   #root { height: 100dvh; }
   button { font-family: inherit; -webkit-appearance: none; }
   ::-webkit-scrollbar { width: 0; }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 3px; background: #243128; outline: none;
+    border-radius: 0;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px; background: #C8F560; cursor: pointer;
+    border: none; border-radius: 0;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 14px; height: 14px; background: #C8F560; cursor: pointer;
+    border: none; border-radius: 0;
+  }
 </style>
 </head>
 <body>
@@ -40,7 +54,7 @@
 
 <script>
 const e = React.createElement;
-const { useState, useRef } = React;
+const { useState, useRef, useCallback, useEffect } = React;
 
 // ─── THEME ──────────────────────────────────────────────────────────────
 const T = {
@@ -70,24 +84,28 @@ function IconSearch(p){return Icon({d:['M11 19a8 8 0 100-16 8 8 0 000 16z','M21 
 function IconFilter(p){return Icon({d:['M22 3H2l8 9.46V19l4 2v-8.54L22 3z'],...p})}
 function IconClock(p){return Icon({d:['M12 22a10 10 0 100-20 10 10 0 000 20z','M12 6v6l4 2'],...p})}
 function IconAlert(p){return Icon({d:['M12 22a10 10 0 100-20 10 10 0 000 20z','M12 8v4','M12 16h.01'],...p})}
-function IconTree(p){return Icon({d:['M17 14l3-4h-4l3-4h-4l3-4H6l3 4H5l3 4H4l3 4H2l8 4v4','M14 22v-4l8-4'],...p})}
 function IconPhone(p){return Icon({d:['M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z'],...p})}
 function IconMail(p){return Icon({d:['M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z','M22 6l-10 7L2 6'],...p})}
+function IconMinus(p){return Icon({d:'M5 12h14',...p})}
+function IconPlus(p){return Icon({d:['M12 5v14','M5 12h14'],...p})}
 
-// ─── PRODUCT NAV ────────────────────────────────────────────────────────
-function ProductNav({active}) {
-  const tabs = [
-    {id:"dash",label:"DASH"},
-    {id:"bench",label:"BENCH"},
-    {id:"moisture",label:"MC"},
-    {id:"basket",label:"BASKET"},
-  ];
+// ─── TAB DEFINITIONS ────────────────────────────────────────────────────
+const TABS = [
+  {id:"dash",label:"DASH",title:"The Dashboard",subtitle:"All your pricing, stumpage, and market data in one screen",color:T.accent,iconFn:IconLayers},
+  {id:"bench",label:"BENCH",title:"Delivered-Cost Benchmarking",subtitle:"See how your sources compare to the regional market",color:T.teal,iconFn:IconTrend},
+  {id:"moisture",label:"MC",title:"Moisture-Adjusted Pricing",subtitle:"See what each load is actually worth at the scale",color:T.accent,iconFn:IconDrop},
+  {id:"basket",label:"BASKET",title:"Wood Basket Intelligence",subtitle:"Your procurement zone, competing mills, and haul economics",color:T.teal,iconFn:IconMap},
+];
+
+// ─── PRODUCT NAV (clickable) ────────────────────────────────────────────
+function ProductNav({active, onTab}) {
   return e('div',{style:{display:'flex',gap:0,marginBottom:16,borderBottom:`1px solid ${T.rule}`}},
-    tabs.map(t=>e('div',{key:t.id,style:{
+    TABS.map(t=>e('div',{key:t.id,onClick:()=>onTab(t.id),style:{
       padding:'8px 12px',fontSize:10,fontWeight:active===t.id?600:500,
-      letterSpacing:'0.1em',textTransform:'uppercase',
+      letterSpacing:'0.1em',textTransform:'uppercase',cursor:'pointer',
       color:active===t.id?T.accent:T.muted,
       borderBottom:active===t.id?`2px solid ${T.accent}`:'2px solid transparent',
+      transition:'color 0.1s, border-color 0.1s',
     }},t.label))
   );
 }
@@ -98,10 +116,40 @@ function Timestamp() {
   );
 }
 
+// ─── SWIPE HOOK ─────────────────────────────────────────────────────────
+function useSwipe(onLeft, onRight) {
+  const touchStart = useRef(null);
+  const touchStartY = useRef(null);
+  const onTouchStart = useCallback(function(ev) {
+    touchStart.current = ev.touches[0].clientX;
+    touchStartY.current = ev.touches[0].clientY;
+  }, []);
+  const onTouchEnd = useCallback(function(ev) {
+    if (touchStart.current === null) return;
+    const dx = ev.changedTouches[0].clientX - touchStart.current;
+    const dy = ev.changedTouches[0].clientY - touchStartY.current;
+    touchStart.current = null;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx < 0) onLeft();
+      else onRight();
+    }
+  }, [onLeft, onRight]);
+  return { onTouchStart, onTouchEnd };
+}
+
 // ─── DASHBOARD ──────────────────────────────────────────────────────────
-function DashboardView() {
+function DashboardView({onTab}) {
+  const [selectedSpecies, setSelectedSpecies] = useState(null);
+
+  const speciesData = {
+    "W. Red Cedar": {delivered:500,stumpage:280,logging:120,haul:100,trend:[-23,-18,-12,-8,-15,-20,-23],src:"BBER Q1 2025"},
+    "Douglas-fir": {delivered:464,stumpage:212,logging:135,haul:117,trend:[2.1,3.5,4.8,5.2,6.1,7.5,8.7],src:"BBER Q1 2025"},
+    "W. Larch": {delivered:457,stumpage:200,logging:140,haul:117,trend:[1.2,2.0,3.1,4.5,5.0,6.2,7.0],src:"BBER Q1 2025"},
+    "Ponderosa": {delivered:375,stumpage:175,logging:110,haul:90,trend:[0.5,1.2,2.0,2.8,3.2,3.8,4.2],src:"BBER Q1 2025"},
+    "Grand Fir": {delivered:373,stumpage:185,logging:108,haul:80,trend:[1.0,0.2,-0.5,-1.2,-2.0,-2.8,-3.1],src:"BBER Q1 2025"},
+  };
+
   const stats = [
-    {label:"DF DELIVERED",value:"$464",sub:"/MBF",note:"BBER Q1 2025",color:T.accent},
     {label:"NW STUMPAGE",value:"$212",sub:"/MBF",note:"MT DOR FY2023",color:T.text},
     {label:"SPREAD",value:"$252",sub:"/MBF",note:"Logging + hauling",color:T.accent},
     {label:"IDL ROLLING",value:"$306",sub:"/MBF",note:"Up 30% YoY",color:T.teal},
@@ -119,8 +167,24 @@ function DashboardView() {
     {sp:"Grand Fir",p:"$373",d:"-3.1%",down:true},
   ];
 
+  const sel = selectedSpecies ? speciesData[selectedSpecies] : null;
+
+  // Mini sparkline
+  function Sparkline({data, color, w=80, h=24}) {
+    const min = Math.min(...data), max = Math.max(...data);
+    const range = max - min || 1;
+    const pts = data.map((v,i) => {
+      const x = (i/(data.length-1))*w;
+      const y = h - ((v-min)/range)*h;
+      return x+','+y;
+    }).join(' ');
+    return e('svg',{width:w,height:h,style:{display:'block'}},
+      e('polyline',{points:pts,fill:'none',stroke:color,strokeWidth:1.5})
+    );
+  }
+
   return e('div',null,
-    e(ProductNav,{active:"dash"}),
+    e(ProductNav,{active:"dash",onTab:onTab}),
     e(Timestamp),
     // Hero price
     e('div',{style:{marginBottom:24}},
@@ -131,9 +195,9 @@ function DashboardView() {
         e('span',{style:{fontSize:13,fontWeight:600,color:T.teal}},'+8.7%')
       )
     ),
-    // Stats grid — hairline separated
+    // Stats grid
     e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:0,marginBottom:24}},
-      stats.slice(1).map((s,i)=>e('div',{key:i,style:{padding:'12px 0',paddingLeft:i%2===1?12:0,borderBottom:`1px solid ${T.rule}`,borderRight:i%2===0?`1px solid ${T.rule}`:'none'}},
+      stats.map((s,i)=>e('div',{key:i,style:{padding:'12px 0',paddingLeft:i%2===1?12:0,borderBottom:`1px solid ${T.rule}`,borderRight:i%2===0?`1px solid ${T.rule}`:'none'}},
         e('div',{style:{fontSize:10,color:T.muted,letterSpacing:'0.1em',marginBottom:4}},s.label),
         e('div',{style:{display:'flex',alignItems:'baseline',gap:2}},
           e('span',{style:{fontSize:22,fontWeight:700,color:s.color}},s.value),
@@ -150,14 +214,36 @@ function DashboardView() {
         e('span',{style:{fontSize:11,color:T.text2,lineHeight:1.4}},a.text)
       ))
     ),
-    // Species table
+    // Species table — interactive
     e('div',null,
       e('div',{style:{fontSize:10,color:T.muted,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:8}},'MT DELIVERED — BBER Q1 2025'),
-      species.map((r,i)=>e('div',{key:r.sp,style:{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:i<4?`1px solid ${T.rule}`:'none'}},
-        e('span',{style:{fontSize:12,fontWeight:500}},r.sp),
-        e('div',{style:{display:'flex',alignItems:'center',gap:12}},
-          e('span',{style:{fontSize:12,fontWeight:700}},r.p),
-          e('span',{style:{fontSize:11,fontWeight:600,color:r.down?T.red:T.teal}},r.d)
+      e('div',{style:{fontSize:9,color:T.text2,marginBottom:8}},'Tap a species for breakdown'),
+      species.map((r,i)=>e('div',{key:r.sp},
+        e('div',{onClick:()=>setSelectedSpecies(selectedSpecies===r.sp?null:r.sp),style:{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:selectedSpecies===r.sp?'none':(i<4?`1px solid ${T.rule}`:'none'),cursor:'pointer'}},
+          e('div',{style:{display:'flex',alignItems:'center',gap:6}},
+            e('div',{style:{width:4,height:4,background:selectedSpecies===r.sp?T.accent:T.rule}}),
+            e('span',{style:{fontSize:12,fontWeight:selectedSpecies===r.sp?700:500,color:selectedSpecies===r.sp?T.text:T.text}},r.sp)
+          ),
+          e('div',{style:{display:'flex',alignItems:'center',gap:12}},
+            e('span',{style:{fontSize:12,fontWeight:700}},r.p),
+            e('span',{style:{fontSize:11,fontWeight:600,color:r.down?T.red:T.teal}},r.d)
+          )
+        ),
+        // Expanded detail
+        selectedSpecies===r.sp && sel && e('div',{style:{padding:'8px 0 12px',borderBottom:i<4?`1px solid ${T.rule}`:'none',background:T.surface,marginLeft:-20,marginRight:-20,paddingLeft:20,paddingRight:20}},
+          e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}},
+            e('div',null,
+              e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em',marginBottom:4}},'COST BREAKDOWN'),
+              e('div',{style:{fontSize:11,color:T.text2}},'Stumpage: $'+sel.stumpage),
+              e('div',{style:{fontSize:11,color:T.text2}},'Logging: $'+sel.logging),
+              e('div',{style:{fontSize:11,color:T.text2}},'Hauling: $'+sel.haul)
+            ),
+            e('div',{style:{textAlign:'right'}},
+              e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em',marginBottom:4}},'7-QTR TREND'),
+              e(Sparkline,{data:sel.trend,color:sel.trend[sel.trend.length-1]>=0?T.teal:T.red})
+            )
+          ),
+          e('div',{style:{fontSize:9,color:T.muted}},sel.src)
         )
       ))
     )
@@ -165,27 +251,48 @@ function DashboardView() {
 }
 
 // ─── BENCHMARKING ───────────────────────────────────────────────────────
-function BenchmarkView() {
-  const units = [
-    {name:"Bonner Creek",dist:"25 mi",delivered:377,vs:-6.2,stump:225,log:110,haul:42},
-    {name:"Lolo Pass",dist:"40 mi",delivered:383,vs:-4.7,stump:210,log:115,haul:58},
-    {name:"Seeley Lake",dist:"55 mi",delivered:398,vs:-1.0,stump:195,log:125,haul:78},
-    {name:"Superior",dist:"90 mi",delivered:420,vs:4.5,stump:145,log:150,haul:125},
+function BenchmarkView({onTab}) {
+  const [radiusMi, setRadiusMi] = useState(100);
+  const [expandedUnit, setExpandedUnit] = useState(null);
+
+  const allUnits = [
+    {name:"Bonner Creek",dist:25,delivered:377,vs:-6.2,stump:225,log:110,haul:42,species:"DF",volume:"3.2 MMBF",seller:"MT DNRC"},
+    {name:"Lolo Pass",dist:40,delivered:383,vs:-4.7,stump:210,log:115,haul:58,species:"DF, LP",volume:"2.8 MMBF",seller:"Plum Creek"},
+    {name:"Seeley Lake",dist:55,delivered:398,vs:-1.0,stump:195,log:125,haul:78,species:"DF, WL",volume:"4.1 MMBF",seller:"USFS"},
+    {name:"Superior",dist:90,delivered:420,vs:4.5,stump:145,log:150,haul:125,species:"DF, GF",volume:"2.1 MMBF",seller:"Private"},
+    {name:"Thompson Falls",dist:120,delivered:435,vs:8.2,stump:160,log:140,haul:135,species:"DF, WP",volume:"3.5 MMBF",seller:"IDL"},
+    {name:"St. Regis",dist:140,delivered:410,vs:2.0,stump:175,log:130,haul:105,species:"DF",volume:"1.8 MMBF",seller:"USFS"},
   ];
+
+  const units = allUnits.filter(u => u.dist <= radiusMi);
   const regional = 402;
   const barMax = 450;
   const benchPct = (regional/barMax)*100;
 
   return e('div',null,
-    e(ProductNav,{active:"bench"}),
+    e(ProductNav,{active:"bench",onTab:onTab}),
     e(Timestamp),
-    // Search / filter
-    e('div',{style:{display:'flex',gap:8,marginBottom:16}},
+    // Search / filter with interactive radius
+    e('div',{style:{display:'flex',gap:8,marginBottom:12}},
       e('div',{style:{flex:1,display:'flex',alignItems:'center',gap:6,borderBottom:`1px solid ${T.rule}`,padding:'8px 0'}},
         e(IconSearch,{size:12}),' ',e('span',{style:{fontSize:11,color:T.muted}},'Douglas-fir, NW Zone')
       ),
-      e('div',{style:{display:'flex',alignItems:'center',gap:4,borderBottom:`1px solid ${T.rule}`,padding:'8px 0',fontSize:11,color:T.muted}},
-        e(IconFilter,{size:12}),' 100 mi'
+      e('div',{style:{display:'flex',alignItems:'center',gap:4,borderBottom:`1px solid ${T.rule}`,padding:'8px 0',fontSize:11,color:T.accent,fontWeight:600}},
+        e(IconFilter,{size:12}),' ',radiusMi+' mi'
+      )
+    ),
+    // Radius slider
+    e('div',{style:{marginBottom:16,padding:'8px 0'}},
+      e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}},
+        e('span',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},'SEARCH RADIUS'),
+        e('span',{style:{fontSize:11,fontWeight:600,color:T.accent}},radiusMi+' mi')
+      ),
+      e('input',{type:'range',min:25,max:200,step:5,value:radiusMi,
+        onChange:function(ev){setRadiusMi(parseInt(ev.target.value))},
+        style:{width:'100%'}
+      }),
+      e('div',{style:{display:'flex',justifyContent:'space-between',fontSize:9,color:T.muted,marginTop:4}},
+        e('span',null,'25 mi'),e('span',null,'200 mi')
       )
     ),
     // Benchmark header
@@ -202,26 +309,43 @@ function BenchmarkView() {
       )
     ),
     // Source rows
-    e('div',{style:{fontSize:10,color:T.muted,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:8}},'ACTIVE SOURCES VS. BENCHMARK'),
+    e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}},
+      e('div',{style:{fontSize:10,color:T.muted,letterSpacing:'0.1em',textTransform:'uppercase'}},'ACTIVE SOURCES VS. BENCHMARK'),
+      e('div',{style:{fontSize:10,color:T.text2}},units.length+' sources')
+    ),
     units.map(u=>{
       const unitPct=(u.delivered/barMax)*100;
       const isBelow=u.delivered<regional;
-      return e('div',{key:u.name,style:{padding:'12px 0',borderBottom:`1px solid ${T.rule}`}},
-        e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:6}},
-          e('div',null,
-            e('span',{style:{fontSize:13,fontWeight:700}},u.name),
-            e('span',{style:{fontSize:11,color:T.muted,marginLeft:8}},u.dist)
+      const isExpanded=expandedUnit===u.name;
+      return e('div',{key:u.name,style:{borderBottom:`1px solid ${T.rule}`}},
+        e('div',{onClick:()=>setExpandedUnit(isExpanded?null:u.name),style:{padding:'12px 0',cursor:'pointer'}},
+          e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:6}},
+            e('div',null,
+              e('span',{style:{fontSize:13,fontWeight:700}},u.name),
+              e('span',{style:{fontSize:11,color:T.muted,marginLeft:8}},u.dist+' mi')
+            ),
+            e('div',{style:{display:'flex',alignItems:'baseline',gap:8}},
+              e('span',{style:{fontSize:18,fontWeight:800}},'$'+u.delivered),
+              e('span',{style:{fontSize:11,fontWeight:600,color:isBelow?T.teal:T.red}},(isBelow?'':'+')+(u.vs)+'%')
+            )
           ),
-          e('div',{style:{display:'flex',alignItems:'baseline',gap:8}},
-            e('span',{style:{fontSize:18,fontWeight:800}},'$'+u.delivered),
-            e('span',{style:{fontSize:11,fontWeight:600,color:isBelow?T.teal:T.red}},(isBelow?'':'+')+(u.vs)+'%')
+          e('div',{style:{height:3,background:T.surfaceHi,position:'relative',overflow:'visible'}},
+            e('div',{style:{height:'100%',width:unitPct+'%',background:isBelow?T.teal:T.red,opacity:0.6}}),
+            e('div',{style:{position:'absolute',left:benchPct+'%',top:-4,width:2,height:11,background:T.accent}})
+          ),
+          e('div',{style:{fontSize:10,color:T.muted,marginTop:4}},'Stump $'+u.stump+' + Log $'+u.log+' + Haul $'+u.haul)
+        ),
+        // Expanded detail
+        isExpanded && e('div',{style:{padding:'0 0 12px',background:T.surface,marginLeft:-20,marginRight:-20,paddingLeft:20,paddingRight:20}},
+          e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:0}},
+            [{l:'SPECIES',v:u.species},{l:'VOLUME',v:u.volume},{l:'SELLER',v:u.seller},{l:'HAUL $/TON',v:'$'+(u.haul/25).toFixed(2)}].map((d,i)=>
+              e('div',{key:d.l,style:{padding:'6px 0',paddingLeft:i%2===1?12:0,borderRight:i%2===0?`1px solid ${T.rule}`:'none'}},
+                e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},d.l),
+                e('div',{style:{fontSize:11,fontWeight:600,color:T.text2}},d.v)
+              )
+            )
           )
-        ),
-        e('div',{style:{height:3,background:T.surfaceHi,position:'relative',overflow:'visible'}},
-          e('div',{style:{height:'100%',width:unitPct+'%',background:isBelow?T.teal:T.red,opacity:0.6}}),
-          e('div',{style:{position:'absolute',left:benchPct+'%',top:-4,width:2,height:11,background:T.accent}})
-        ),
-        e('div',{style:{fontSize:10,color:T.muted,marginTop:4}},'Stump $'+u.stump+' + Log $'+u.log+' + Haul $'+u.haul)
+        )
       );
     }),
     e('div',{style:{fontSize:10,color:T.text2,marginTop:12,lineHeight:1.5}},
@@ -231,8 +355,10 @@ function BenchmarkView() {
 }
 
 // ─── MOISTURE ───────────────────────────────────────────────────────────
-function MoistureView() {
-  const basePrice=464, assumed=0.50;
+function MoistureView({onTab}) {
+  const [assumedMC, setAssumedMC] = useState(50);
+  const basePrice=464;
+  const assumed=assumedMC/100;
   const loads = [
     {id:"TRK-0847",mc:0.37,tons:25.2,time:"7:14 AM"},
     {id:"TRK-1203",mc:0.44,tons:24.8,time:"8:32 AM"},
@@ -247,18 +373,34 @@ function MoistureView() {
   });
   const totalDelta=enriched.reduce((s,l)=>s+parseFloat(l.delta),0);
   const avgMC=(loads.reduce((s,l)=>s+l.mc,0)/loads.length*100).toFixed(1);
+  const totalValue=enriched.reduce((s,l)=>s+parseFloat(l.adjusted),0);
 
   return e('div',null,
-    e(ProductNav,{active:"moisture"}),
+    e(ProductNav,{active:"moisture",onTab:onTab}),
     e(Timestamp),
     e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:16}},
       e('div',null,
         e('div',{style:{fontSize:13,fontWeight:700}},"Today's Scale Log"),
-        e('div',{style:{fontSize:10,color:T.muted}},'Bonner Mill | DF | Flat $464/MBF')
+        e('div',{style:{fontSize:10,color:T.muted}},'Bonner Mill | DF | Flat $'+basePrice+'/MBF')
       ),
       e('div',{style:{fontSize:10,color:T.accent,fontWeight:600,letterSpacing:'0.1em'}},'LIVE')
     ),
-    // Summary stats — hairline grid
+    // Assumed MC slider — interactive
+    e('div',{style:{marginBottom:16,padding:'8px 0',borderBottom:`1px solid ${T.rule}`}},
+      e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}},
+        e('span',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},'ASSUMED MOISTURE CONTENT'),
+        e('span',{style:{fontSize:13,fontWeight:700,color:T.accent}},assumedMC+'%')
+      ),
+      e('input',{type:'range',min:30,max:65,step:1,value:assumedMC,
+        onChange:function(ev){setAssumedMC(parseInt(ev.target.value))},
+        style:{width:'100%'}
+      }),
+      e('div',{style:{display:'flex',justifyContent:'space-between',fontSize:9,color:T.muted,marginTop:4}},
+        e('span',null,'30% (dry)'),e('span',null,'65% (green)')
+      ),
+      e('div',{style:{fontSize:9,color:T.text2,marginTop:6}},'Drag to see how assumed MC changes adjusted pricing across all loads')
+    ),
+    // Summary stats
     e('div',{style:{display:'flex',gap:0,marginBottom:16,borderBottom:`1px solid ${T.rule}`}},
       [{label:'AVG MC',value:avgMC+'%',color:parseFloat(avgMC)>50?T.red:T.accent},
        {label:'LOADS',value:''+loads.length,color:T.text},
@@ -290,43 +432,107 @@ function MoistureView() {
 }
 
 // ─── WOOD BASKET ────────────────────────────────────────────────────────
-function BasketView() {
+function BasketView({onTab}) {
+  const [selectedZone, setSelectedZone] = useState(null);
+
   const mills = [
-    {name:"Stoltze Land & Lumber",loc:"Columbia Falls, MT",dist:"115 mi",species:"DF, WP, Larch",cap:"50 MMBF/yr"},
-    {name:"Sun Mountain Lumber",loc:"Deer Lodge, MT",dist:"95 mi",species:"LP, DF",cap:"~2 MMBF/wk"},
-    {name:"Sun Mountain Lumber (Livingston)",loc:"Livingston, MT",dist:"116 mi",species:"LP, DF",cap:"Studs, ramping"},
-    {name:"Idaho Forest Group",loc:"St. Maries, ID",dist:"180 mi",species:"WP, DF, GF",cap:"200 MMBF/yr"},
-    {name:"Clearwater Paper",loc:"Lewiston, ID",dist:"210 mi",species:"Pulp, chips",cap:"n/a"},
+    {name:"Stoltze Land & Lumber",loc:"Columbia Falls, MT",dist:"115 mi",species:"DF, WP, Larch",cap:"50 MMBF/yr",lat:48.37,lng:-114.18},
+    {name:"Sun Mountain Lumber",loc:"Deer Lodge, MT",dist:"95 mi",species:"LP, DF",cap:"~2 MMBF/wk",lat:46.40,lng:-112.73},
+    {name:"Sun Mountain (Livingston)",loc:"Livingston, MT",dist:"116 mi",species:"LP, DF",cap:"Studs, ramping",lat:45.66,lng:-110.56},
+    {name:"Idaho Forest Group",loc:"St. Maries, ID",dist:"180 mi",species:"WP, DF, GF",cap:"200 MMBF/yr",lat:47.31,lng:-116.56},
+    {name:"Clearwater Paper",loc:"Lewiston, ID",dist:"210 mi",species:"Pulp, chips",cap:"n/a",lat:46.42,lng:-117.01},
   ];
   const zones = [
-    {ring:"0-35 mi",haul:"$3.50/ton",pct:"13%",color:T.teal},
-    {ring:"35-60 mi",haul:"$5.00/ton",pct:"17%",color:T.accent},
-    {ring:"60-100 mi",haul:"$8.00/ton",pct:"25%",color:"#E0B04B"},
-    {ring:"100-150 mi",haul:"$12.00/ton",pct:"33%",color:T.red},
+    {ring:"0-35 mi",haul:"$3.50/ton",pct:"13%",color:T.teal,idx:0},
+    {ring:"35-60 mi",haul:"$5.00/ton",pct:"17%",color:T.accent,idx:1},
+    {ring:"60-100 mi",haul:"$8.00/ton",pct:"25%",color:"#E0B04B",idx:2},
+    {ring:"100-150 mi",haul:"$12.00/ton",pct:"33%",color:T.red,idx:3},
   ];
-  const dots=[{top:'52%',left:'72%'},{top:'25%',left:'38%'},{top:'55%',left:'28%'},{top:'42%',left:'75%'},{top:'60%',left:'68%'}];
+
+  // Topographic map SVG
+  function TopoMap() {
+    const w=360, h=180;
+    // Contour paths representing terrain
+    const contours = [
+      {d:"M20,90 Q60,30 120,50 T200,40 Q260,35 320,60 T350,55", color:T.rule},
+      {d:"M10,110 Q50,70 100,80 T180,65 Q230,55 290,75 T340,70", color:T.rule},
+      {d:"M15,130 Q70,100 130,110 T220,95 Q270,85 330,100 T355,95", color:T.rule},
+      {d:"M5,150 Q55,130 110,135 T200,125 Q260,120 320,135 T350,130", color:T.rule},
+      // Rivers
+      {d:"M180,10 Q175,40 185,70 Q190,100 180,140 Q175,160 180,180", color:T.teal+'40', sw:1.5},
+      {d:"M120,0 Q115,25 125,50 Q140,70 180,85", color:T.teal+'30', sw:1},
+      // Roads
+      {d:"M40,90 L100,85 L180,90 L260,80 L340,85", color:T.muted+'50', sw:0.7},
+      {d:"M180,20 L180,90 L180,165", color:T.muted+'50', sw:0.7},
+    ];
+
+    // Mill positions mapped to SVG coords (approximate geographic positions)
+    const millDots = [
+      {x:200,y:25,name:"Stoltze"},      // Columbia Falls — north
+      {x:160,y:95,name:"Sun Mtn"},       // Deer Lodge — central
+      {x:280,y:120,name:"Livingston"},    // Livingston — east
+      {x:50,y:60,name:"IFG"},            // St. Maries — west ID
+      {x:60,y:100,name:"Clearwater"},     // Lewiston — west ID
+    ];
+
+    const ringRadii = [35,55,80,110];
+    const ringColors = [T.teal,T.accent,'#E0B04B',T.red];
+
+    return e('svg',{viewBox:'0 0 '+w+' '+h,width:'100%',height:h,style:{display:'block'}},
+      // Background terrain fill
+      e('rect',{x:0,y:0,width:w,height:h,fill:T.surface}),
+      // Contour lines
+      contours.map((c,i)=>e('path',{key:'c'+i,d:c.d,fill:'none',stroke:c.color||T.rule,strokeWidth:c.sw||0.5,opacity:0.7})),
+      // Isochrone rings (ellipses for road-network approximation)
+      ringRadii.map((r,i)=>e('ellipse',{key:'r'+i,cx:180,cy:90,rx:r,ry:r*0.65,
+        fill:'none',stroke:ringColors[i],strokeWidth:selectedZone===i?1.5:0.7,
+        opacity:selectedZone===i?0.8:0.3,strokeDasharray:selectedZone===i?'none':'4,3',
+        style:{cursor:'pointer'},
+        onClick:function(){setSelectedZone(selectedZone===i?null:i)}
+      })),
+      // Center point (Missoula)
+      e('rect',{x:177,y:87,width:6,height:6,fill:T.accent}),
+      e('text',{x:180,y:82,textAnchor:'middle',fill:T.accent,fontSize:7,fontFamily:'JetBrains Mono'},'MISSOULA'),
+      // Mill dots
+      millDots.map((m,i)=>e('g',{key:'m'+i},
+        e('rect',{x:m.x-2,y:m.y-2,width:4,height:4,fill:T.accent,opacity:0.8}),
+        e('text',{x:m.x,y:m.y-5,textAnchor:'middle',fill:T.text2,fontSize:5.5,fontFamily:'JetBrains Mono'},m.name)
+      )),
+      // Geographic labels
+      e('text',{x:15,y:15,fill:T.muted,fontSize:6,fontFamily:'JetBrains Mono'},'IDAHO'),
+      e('text',{x:250,y:15,fill:T.muted,fontSize:6,fontFamily:'JetBrains Mono'},'MONTANA'),
+      e('text',{x:330,y:170,fill:T.muted+'60',fontSize:5,fontFamily:'JetBrains Mono'},'N\u2191')
+    );
+  }
 
   return e('div',null,
-    e(ProductNav,{active:"basket"}),
+    e(ProductNav,{active:"basket",onTab:onTab}),
     e(Timestamp),
-    // Map visualization
-    e('div',{style:{height:160,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',marginBottom:16,position:'relative',overflow:'hidden',borderBottom:`1px solid ${T.rule}`}},
-      [130,95,65,35].map((r,i)=>e('div',{key:i,style:{position:'absolute',width:r*2,height:r*1.3,border:`1px solid ${[T.red,'#E0B04B',T.accent,T.teal][i]}40`,borderRadius:'50%',top:'50%',left:'50%',transform:'translate(-50%,-50%)'}})),
-      e('div',{style:{width:6,height:6,background:T.accent,position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',zIndex:2}}),
-      e('div',{style:{position:'absolute',bottom:8,left:0,right:0,fontSize:10,color:T.muted,zIndex:2}},'Missoula, MT | Haul-cost isochrones (road-network)'),
-      dots.map((pos,i)=>e('div',{key:i,style:{position:'absolute',top:pos.top,left:pos.left,width:4,height:4,background:T.accent,opacity:0.8,zIndex:1}}))
+    // Map visualization — topographic style
+    e('div',{style:{marginBottom:16,borderBottom:`1px solid ${T.rule}`,paddingBottom:8}},
+      e(TopoMap),
+      e('div',{style:{fontSize:9,color:T.muted,marginTop:6}},'Missoula, MT | Haul-cost isochrones (road-network) | Tap rings to filter')
     ),
-    // Profit rings
+    // Profit rings — interactive
     e('div',{style:{marginBottom:24}},
       e('div',{style:{fontSize:10,color:T.accent,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:8}},'PROFIT RINGS'),
       e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:0}},
-        zones.map((z,i)=>e('div',{key:z.ring,style:{display:'flex',alignItems:'center',gap:8,padding:'8px 0',paddingLeft:i%2===1?12:0,borderBottom:`1px solid ${T.rule}`,borderRight:i%2===0?`1px solid ${T.rule}`:'none'}},
+        zones.map((z,i)=>e('div',{key:z.ring,onClick:()=>setSelectedZone(selectedZone===z.idx?null:z.idx),style:{display:'flex',alignItems:'center',gap:8,padding:'8px 0',paddingLeft:i%2===1?12:0,borderBottom:`1px solid ${T.rule}`,borderRight:i%2===0?`1px solid ${T.rule}`:'none',cursor:'pointer',background:selectedZone===z.idx?T.surfaceHi:'transparent'}},
           e('div',{style:{width:4,height:4,background:z.color,flexShrink:0}}),
           e('div',null,
-            e('div',{style:{fontSize:11,fontWeight:600}},z.ring),
+            e('div',{style:{fontSize:11,fontWeight:selectedZone===z.idx?700:600,color:selectedZone===z.idx?T.text:T.text}},z.ring),
             e('div',{style:{fontSize:9,color:T.muted}},z.haul+' ('+z.pct+' of gate)')
           )
         ))
+      ),
+      selectedZone!==null && e('div',{style:{marginTop:8,padding:'8px 0',borderBottom:`1px solid ${T.rule}`}},
+        e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em',marginBottom:4}},'ZONE DETAIL'),
+        e('div',{style:{fontSize:11,color:T.text2,lineHeight:1.6}},
+          selectedZone===0?'Prime zone. Lowest haul cost, highest margin. Most competitive — every mill in range fights for this wood.':
+          selectedZone===1?'Core procurement zone. Moderate haul cost, strong margins. Sweet spot for most operations.':
+          selectedZone===2?'Extended zone. Haul cost starts eating margin. Worth it for premium species or high stumpage spreads.':
+          'Outer ring. Only pencils on high-value sorts or when closer supply is tight. Monitor, don\u2019t chase.'
+        )
       )
     ),
     // Competing mills
@@ -342,14 +548,6 @@ function BasketView() {
     )
   );
 }
-
-// ─── SCENARIOS ──────────────────────────────────────────────────────────
-const SCENARIOS = [
-  {id:"overview",title:"The Dashboard",subtitle:"All your pricing, stumpage, and market data in one screen",color:T.accent,iconFn:IconLayers,component:DashboardView,caption:"Every public pricing source across MT, ID, WA, OR. Updated automatically. One login."},
-  {id:"benchmarking",title:"Delivered-Cost Benchmarking",subtitle:"See how your sources compare to the regional market",color:T.teal,iconFn:IconTrend,component:BenchmarkView,caption:"Your active timber sales benchmarked against regional delivered costs. The math you already do, consolidated and current."},
-  {id:"moisture",title:"Moisture-Adjusted Pricing",subtitle:"See what each load is actually worth at the scale",color:T.accent,iconFn:IconDrop,component:MoistureView,caption:"Runs alongside your existing scale system. Same buying process. You just see the adjusted value of every load as it crosses."},
-  {id:"basket",title:"Wood Basket Intelligence",subtitle:"Your procurement zone, competing mills, and haul economics",color:T.teal,iconFn:IconMap,component:BasketView,caption:"Haul-cost isochrones on actual road networks, not radius circles. See who\u2019s competing for the same wood and where your cost advantage lives."},
-];
 
 // ─── CTA ────────────────────────────────────────────────────────────────
 function CTAScreen({onBack}) {
@@ -373,8 +571,7 @@ function CTAScreen({onBack}) {
     e('div',{style:{width:'100%',maxWidth:300,marginBottom:24,borderBottom:`1px solid ${T.rule}`,paddingBottom:24}},
       e('div',{style:{fontSize:13,fontWeight:700,marginBottom:12}},'Want to see it with your numbers?'),
       e('div',{style:{display:'flex',alignItems:'center',gap:6,marginBottom:8,fontSize:13,color:T.text2}},e(IconPhone,{size:13}),' Gillian Shannon'),
-      e('div',{style:{display:'flex',alignItems:'center',gap:6,marginBottom:8,fontSize:12,color:T.muted}},e(IconTree,{size:13}),' Quality Forest Management'),
-      e('div',{style:{display:'flex',alignItems:'center',gap:6,fontSize:12,color:T.muted}},e(IconMail,{size:13}),' gillian@strathex.com')
+      e('div',{style:{display:'flex',alignItems:'center',gap:6,fontSize:12,color:T.muted}},e(IconMail,{size:13}),' shannongillian2@gmail.com')
     ),
     e('button',{onClick:onBack,style:{background:'transparent',border:`1px solid ${T.rule}`,padding:'10px 20px',color:T.text2,fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:6}},
       e(IconLeft,{size:14}),' Back to features'
@@ -382,24 +579,46 @@ function CTAScreen({onBack}) {
   );
 }
 
+// ─── SCENARIOS (for home tiles) ─────────────────────────────────────────
+const SCENARIO_CAPTIONS = {
+  dash:"Every public pricing source across MT, ID, WA, OR. Updated automatically. One login.",
+  bench:"Your active timber sales benchmarked against regional delivered costs. The math you already do, consolidated and current.",
+  moisture:"Runs alongside your existing scale system. Same buying process. You just see the adjusted value of every load as it crosses.",
+  basket:"Haul-cost isochrones on actual road networks, not radius circles. See who\u2019s competing for the same wood and where your cost advantage lives.",
+};
+
+const TAB_COMPONENTS = {dash:DashboardView, bench:BenchmarkView, moisture:MoistureView, basket:BasketView};
+
 // ─── APP ────────────────────────────────────────────────────────────────
 function App() {
   const [view,setView] = useState("home");
-  const [featureId,setFeatureId] = useState(null);
+  const [activeTab,setActiveTab] = useState("dash");
   const containerRef = useRef(null);
 
   function scrollTop(){if(containerRef.current)containerRef.current.scrollTop=0;}
-  function openFeature(id){setFeatureId(id);setView("feature");scrollTop();}
-  function goHome(){setView("home");setFeatureId(null);scrollTop();}
+  function openTab(id){setActiveTab(id);setView("feature");scrollTop();}
+  function goHome(){setView("home");scrollTop();}
   function goCTA(){setView("cta");scrollTop();}
 
-  const feature = SCENARIOS.find(s=>s.id===featureId);
-  const Comp = feature?.component;
+  const tabIdx = TABS.findIndex(t=>t.id===activeTab);
+  const swipeLeft = useCallback(function(){
+    if(view==="feature" && tabIdx<TABS.length-1){
+      setActiveTab(TABS[tabIdx+1].id);scrollTop();
+    }
+  },[view,tabIdx]);
+  const swipeRight = useCallback(function(){
+    if(view==="feature" && tabIdx>0){
+      setActiveTab(TABS[tabIdx-1].id);scrollTop();
+    }
+  },[view,tabIdx]);
+  const swipeHandlers = useSwipe(swipeLeft, swipeRight);
+
+  const Comp = TAB_COMPONENTS[activeTab];
 
   return e('div',{style:{background:T.bg,color:T.text,height:'100dvh',maxWidth:480,margin:'0 auto',position:'relative',display:'flex',flexDirection:'column'}},
     // Header
     e('div',{style:{padding:'16px 20px 12px',borderBottom:`1px solid ${T.rule}`,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}},
-      e('div',null,
+      e('div',{onClick:view!=="home"?goHome:undefined,style:{cursor:view!=="home"?'pointer':'default'}},
         e('div',{style:{fontSize:16,fontWeight:700,letterSpacing:'0.2em',color:T.accent}},'KYTHEREX'),
         e('div',{style:{fontSize:9,fontWeight:400,letterSpacing:'0.15em',color:T.muted,marginTop:1}},'TIMBER PROCUREMENT ANALYTICS')
       ),
@@ -407,14 +626,15 @@ function App() {
         e(IconX,{size:12}),' Close'
       )
     ),
-    // Content
-    e('div',{ref:containerRef,style:{padding:20,overflowY:'auto',flex:1,paddingBottom:view==="feature"?80:20}},
+    // Content — swipeable
+    e('div',Object.assign({ref:containerRef,style:{padding:20,overflowY:'auto',flex:1,paddingBottom:view==="feature"?80:20}},
+      view==="feature"?swipeHandlers:{}),
       view==="home" && e('div',null,
         e('div',{style:{marginBottom:24}},
           e('div',{style:{fontSize:18,fontWeight:700,lineHeight:1.3,marginBottom:8}},'See what KYTHEREX does.'),
           e('div',{style:{fontSize:12,color:T.text2,lineHeight:1.6}},'Four capabilities. All running on real public data from MT, ID, WA, and OR. Tap any to explore.')
         ),
-        SCENARIOS.map(s=>e('div',{key:s.id,onClick:()=>openFeature(s.id),style:{borderBottom:`1px solid ${T.rule}`,padding:'16px 0',cursor:'pointer'}},
+        TABS.map(s=>e('div',{key:s.id,onClick:()=>openTab(s.id),style:{borderBottom:`1px solid ${T.rule}`,padding:'16px 0',cursor:'pointer'}},
           e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center'}},
             e('div',{style:{display:'flex',gap:12,alignItems:'flex-start'}},
               e('div',{style:{color:s.color,marginTop:2}},e(s.iconFn,{size:16,color:s.color})),
@@ -431,10 +651,14 @@ function App() {
           e('div',{style:{fontSize:11,color:T.text2,marginTop:4}},'Built in Montana, for Montana.')
         )
       ),
-      view==="feature" && feature && Comp && e('div',null,
-        e(Comp),
-        e('div',{style:{marginTop:20,padding:'12px 0',borderTop:`1px solid ${T.rule}`}},
-          e('div',{style:{fontSize:12,color:T.text2,lineHeight:1.6}},feature.caption)
+      view==="feature" && Comp && e('div',null,
+        e(Comp,{onTab:openTab}),
+        // Swipe hint
+        e('div',{style:{display:'flex',justifyContent:'center',gap:6,marginTop:16,paddingTop:8}},
+          TABS.map((t,i)=>e('div',{key:t.id,style:{width:t.id===activeTab?16:6,height:3,background:t.id===activeTab?T.accent:T.rule,transition:'width 0.15s'}}))
+        ),
+        e('div',{style:{marginTop:12,padding:'12px 0',borderTop:`1px solid ${T.rule}`}},
+          e('div',{style:{fontSize:12,color:T.text2,lineHeight:1.6}},SCENARIO_CAPTIONS[activeTab])
         )
       ),
       view==="cta" && e(CTAScreen,{onBack:goHome})
