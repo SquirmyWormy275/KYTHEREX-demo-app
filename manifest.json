@@ -5,8 +5,8 @@
   "start_url": "/KYTHEREX-demo-app/",
   "scope": "/KYTHEREX-demo-app/",
   "display": "standalone",
-  "background_color": "#0F1A12",
-  "theme_color": "#0F1A12",
+  "background_color": "#0A0C0B",
+  "theme_color": "#0A0C0B",
   "orientation": "portrait",
   "icons": [
     {
