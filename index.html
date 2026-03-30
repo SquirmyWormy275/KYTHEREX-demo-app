@@ -443,10 +443,10 @@ function BasketView({onTab}) {
     {name:"Clearwater Paper",loc:"Lewiston, ID",dist:"210 mi",species:"Pulp, chips",cap:"n/a",lat:46.42,lng:-117.01},
   ];
   const zones = [
-    {ring:"0-35 mi",haul:"$3.50/ton",pct:"13%",color:T.teal,idx:0},
-    {ring:"35-60 mi",haul:"$5.00/ton",pct:"17%",color:T.accent,idx:1},
-    {ring:"60-100 mi",haul:"$8.00/ton",pct:"25%",color:"#E0B04B",idx:2},
-    {ring:"100-150 mi",haul:"$12.00/ton",pct:"33%",color:T.red,idx:3},
+    {ring:"0-35 mi",haul:"$9.50/ton",pct:"13%",color:T.teal,idx:0},
+    {ring:"35-60 mi",haul:"$14.00/ton",pct:"19%",color:T.accent,idx:1},
+    {ring:"60-100 mi",haul:"$19.00/ton",pct:"26%",color:"#E0B04B",idx:2},
+    {ring:"100-150 mi",haul:"$25.00/ton",pct:"34%",color:T.red,idx:3},
   ];
 
   // Topographic map SVG
@@ -559,12 +559,12 @@ function CTAScreen({onBack}) {
     ),
     e('div',{style:{display:'flex',gap:24,marginBottom:32}},
       e('div',null,
-        e('div',{style:{fontSize:22,fontWeight:800,color:T.accent}},'$1-5K'),
-        e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},'PER MONTH')
+        e('div',{style:{fontSize:22,fontWeight:800,color:T.accent}},'$0.50'),
+        e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},'PER MBF')
       ),
       e('div',{style:{width:1,background:T.rule}}),
       e('div',null,
-        e('div',{style:{fontSize:22,fontWeight:800,color:T.teal}},'3-60x'),
+        e('div',{style:{fontSize:22,fontWeight:800,color:T.teal}},'10-25x'),
         e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},'TYPICAL ROI')
       )
     ),
