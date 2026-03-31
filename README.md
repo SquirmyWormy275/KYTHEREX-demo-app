@@ -6,18 +6,27 @@ Interactive product demo for KYTHEREX timber procurement analytics. Built for fi
 
 ## What This Is
 
-A single-page mobile-first app that shows what KYTHEREX does. Four product screens using real public pricing data from Montana, Idaho, Washington, and Oregon:
+A single-screen, map-centric mobile app that shows what KYTHEREX does. One unified product view -- not tabs, not slides. A procurement forester opens it and sees:
 
-- **Dashboard** - Species prices, stumpage spreads, market alerts from BBER, MT DOR, IDL, WA DNR
-- **Delivered-Cost Benchmarking** - Active timber sources vs. regional benchmark with full cost identity breakdown
-- **Moisture-Adjusted Pricing** - Live scale log showing flat vs. MC-adjusted value per load
-- **Wood Basket Intelligence** - Haul-cost isochrones, profit rings, competing mill landscape
+1. **Where the wood is.** FIA county-level sawtimber inventory bubbles across MT, ID, WA, OR.
+2. **What it costs to get it here.** Profit rings radiating from the selected mill -- green (profitable), yellow (marginal), red (uneconomic).
+3. **Where the money leaks.** Moisture-adjusted pricing gaps, Monte Carlo risk distributions, and a bid recommendation engine.
 
-All data is pre-baked from public sources (BBER Q1 2025, MT DOR FY2023, IDL rolling averages). No backend. No API calls. No proprietary data.
+### Features
+
+- **5 switchable demo mills** -- Sun Mountain (Deer Lodge), Stoltze (Columbia Falls), Thompson River (Thompson Falls), Idaho Forest Group (Lewiston), Sierra Pacific (Shelton)
+- **Season selector** -- Watch profit rings contract in mud season and expand in frozen ground
+- **Species selector** -- Douglas-fir, lodgepole, larch, ponderosa, cedar at real BBER prices
+- **Bid recommendation card** -- Tap any county on the map for delivered cost, bid confidence (Monte Carlo), moisture gap analysis
+- **What-if sliders** -- Diesel price, stumpage ask, actual MC -- all update the bid card in real time
+- **Supply intelligence panel** -- Species mix, ownership breakdown, growth-to-drain ratio, competing mills
+- **CTA screen** -- Correct financials from Financial Source of Truth v2.1 ($0.25-$0.75/MBF, 10-25x ROI, $116K-$290K savings)
+
+All data is pre-baked from public sources (BBER Q1 2025, MT DOR FY2023, IDL rolling averages, USDA FIA). No backend. No API calls. No proprietary data.
 
 ## How to Use
 
-Pull it up on your phone. Tap a feature. Show someone what the product looks like. End screen has contact info and pricing.
+Pull it up on your phone. Select a mill. Tap a county on the map. Show someone what procurement intelligence looks like. The "Your numbers" button has contact info and pricing.
 
 Works on any device with a browser.
 
@@ -28,15 +37,15 @@ Works on any device with a browser.
 3. Tap "Add to Home Screen"
 4. Tap "Add"
 
-The app launches full-screen and works offline. Updates happen automatically when you open it with an internet connection.
+The app launches full-screen and works offline.
 
 ## Tech
 
-Single `index.html`. React 18 from CDN. Zero build step. Zero dependencies to install. Hand-rolled SVG icons. Runs offline after first load.
+Single `index.html`. React 18 from CDN. Zero build step. Zero dependencies to install. Hand-rolled SVG icons and map. Runs offline after first load.
 
 ## Updating
 
-Edit `index.html`. Push to `main`. GitHub Pages redeploys automatically. Anyone with the bookmarked URL gets the update on next visit.
+Edit `index.html`. Push to `main`. GitHub Pages redeploys automatically.
 
 ## Data Sources
 
@@ -46,6 +55,7 @@ Edit `index.html`. Push to `main`. GitHub Pages redeploys automatically. Anyone 
 | Montana Dept. of Revenue | Stumpage estimates by zone | Annual |
 | Idaho Dept. of Lands (IDL) | Per-sale auction results, rolling averages | Semi-annual |
 | Washington DNR | Stumpage value tables by species, zone, quality | Semi-annual |
+| USDA Forest Inventory & Analysis (FIA) | County-level sawtimber volume, species, ownership | Every 5 years |
 | ATRI | Trucking operating cost benchmarks | Annual |
 
 ## Part Of

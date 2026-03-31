@@ -44,6 +44,16 @@
     width: 14px; height: 14px; background: #C8F560; cursor: pointer;
     border: none; border-radius: 0;
   }
+  select {
+    font-family: 'JetBrains Mono', monospace;
+    -webkit-appearance: none; appearance: none;
+    background: #111614; color: #F0EDE6; border: 1px solid #243128;
+    padding: 6px 24px 6px 8px; font-size: 11px; font-weight: 600;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236B7260'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 8px center;
+  }
+  select:focus { outline: 1px solid #C8F560; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 </style>
 </head>
 <body>
@@ -54,512 +64,429 @@
 
 <script>
 const e = React.createElement;
-const { useState, useRef, useCallback, useEffect } = React;
+const { useState, useRef, useCallback, useEffect, useMemo } = React;
 
-// ─── THEME ──────────────────────────────────────────────────────────────
+// --- THEME ---
 const T = {
   bg:"#0A0C0B", surface:"#111614", surfaceHi:"#1C2420",
   text:"#F0EDE6", text2:"#9CA38C", muted:"#6B7260",
   accent:"#C8F560", accentDim:"rgba(200,245,96,0.12)",
-  teal:"#3DFFD0", red:"#D94840",
-  rule:"#243128",
+  teal:"#3DFFD0", red:"#D94840", yellow:"#EAB308",
+  green:"#22C55E", rule:"#243128",
 };
 
-// ─── SVG ICONS (inline, no dep) ─────────────────────────────────────────
+// --- SVG ICONS ---
 function Icon({d, size=14, color=T.muted, sw=2}) {
   return e('svg',{width:size,height:size,viewBox:'0 0 24 24',fill:'none',stroke:color,strokeWidth:sw,strokeLinecap:'round',strokeLinejoin:'round'},
     Array.isArray(d) ? d.map((p,i)=>e('path',{key:i,d:p})) : e('path',{d})
   );
 }
-function IconLayers(p){return Icon({d:['M12 2L2 7l10 5 10-5-10-5z','M2 17l10 5 10-5','M2 12l10 5 10-5'],...p})}
-function IconTrend(p){return Icon({d:['M23 6l-9.5 9.5-5-5L1 18'],...p})}
-function IconDrop(p){return Icon({d:['M12 2.69l5.66 5.66a8 8 0 11-11.31 0z'],...p})}
 function IconMap(p){return Icon({d:['M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z','M12 13a3 3 0 100-6 3 3 0 000 6z'],...p})}
-function IconChev(p){return Icon({d:'M9 18l6-6-6-6',...p})}
 function IconX(p){return Icon({d:['M18 6L6 18','M6 6l12 12'],...p})}
 function IconLeft(p){return Icon({d:['M19 12H5','M12 19l-7-7 7-7'],...p})}
 function IconRight(p){return Icon({d:['M5 12h14','M12 5l7 7-7 7'],...p})}
+function IconChev(p){return Icon({d:'M6 9l6 6 6-6',...p})}
 function IconRefresh(p){return Icon({d:['M23 4v6h-6','M1 20v-6h6','M3.51 9a9 9 0 0114.85-3.36L23 10','M20.49 15a9 9 0 01-14.85 3.36L1 14'],...p})}
-function IconSearch(p){return Icon({d:['M11 19a8 8 0 100-16 8 8 0 000 16z','M21 21l-4.35-4.35'],...p})}
-function IconFilter(p){return Icon({d:['M22 3H2l8 9.46V19l4 2v-8.54L22 3z'],...p})}
-function IconClock(p){return Icon({d:['M12 22a10 10 0 100-20 10 10 0 000 20z','M12 6v6l4 2'],...p})}
-function IconAlert(p){return Icon({d:['M12 22a10 10 0 100-20 10 10 0 000 20z','M12 8v4','M12 16h.01'],...p})}
 function IconPhone(p){return Icon({d:['M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z'],...p})}
 function IconMail(p){return Icon({d:['M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z','M22 6l-10 7L2 6'],...p})}
-function IconMinus(p){return Icon({d:'M5 12h14',...p})}
-function IconPlus(p){return Icon({d:['M12 5v14','M5 12h14'],...p})}
+function IconTarget(p){return Icon({d:['M12 22a10 10 0 100-20 10 10 0 000 20z','M12 18a6 6 0 100-12 6 6 0 000 12z','M12 14a2 2 0 100-4 2 2 0 000 4z'],...p})}
 
-// ─── TAB DEFINITIONS ────────────────────────────────────────────────────
-const TABS = [
-  {id:"dash",label:"DASH",title:"The Dashboard",subtitle:"All your pricing, stumpage, and market data in one screen",color:T.accent,iconFn:IconLayers},
-  {id:"bench",label:"BENCH",title:"Delivered-Cost Benchmarking",subtitle:"See how your sources compare to the regional market",color:T.teal,iconFn:IconTrend},
-  {id:"moisture",label:"MC",title:"Moisture-Adjusted Pricing",subtitle:"See what each load is actually worth at the scale",color:T.accent,iconFn:IconDrop},
-  {id:"basket",label:"BASKET",title:"Wood Basket Intelligence",subtitle:"Your procurement zone, competing mills, and haul economics",color:T.teal,iconFn:IconMap},
+// --- MILL DATA (5 pre-computed demo mills) ---
+const MILLS = [
+  {
+    id:"MT-005", name:"Sun Mountain Lumber", city:"Deer Lodge", state:"MT",
+    lat:46.40, lon:-112.73, owner:"Anderson Family",
+    species:["Lodgepole","Douglas-fir"], cap:"~2 MMBF/wk",
+    notes:"Montana's largest sawmill",
+    supply:{total:12400, df:45, lp:20, wl:15, pp:10, other:10},
+    ownership:{usfs:58, state:14, private:28},
+    gdr:1.6, competing:[
+      {name:"Thompson River Lumber",overlap:35},{name:"F.H. Stoltze",overlap:20},
+      {name:"Weyerhaeuser Kalispell",overlap:18},{name:"Pyramid Mountain",overlap:12}
+    ],
+    cost:{stumpage:212,logging:135,haul:117,delivered:464,spread:252},
+    moisture:{assumed:50,actual:55,flat:42.70,adjusted:38.85,overpay:3.85,annual:385000},
+    mc:{pTarget:73,pBreakeven:89,mean:36.20,p10:29.50,p50:36.00,p90:42.80},
+    mapCenter:{x:180,y:90}
+  },
+  {
+    id:"MT-001", name:"F.H. Stoltze Land & Lumber", city:"Columbia Falls", state:"MT",
+    lat:48.37, lon:-114.18, owner:"Stoltze Family (est. 1912)",
+    species:["Douglas-fir","W. Pine","Larch"], cap:"50 MMBF/yr",
+    notes:"Historic family-owned mill, 110+ years",
+    supply:{total:9800, df:50, lp:15, wl:20, pp:5, other:10},
+    ownership:{usfs:62, state:10, private:28},
+    gdr:1.8, competing:[
+      {name:"Weyerhaeuser Kalispell",overlap:40},{name:"Sun Mountain Lumber",overlap:20},
+      {name:"Pyramid Mountain",overlap:15}
+    ],
+    cost:{stumpage:225,logging:128,haul:98,delivered:451,spread:226},
+    moisture:{assumed:50,actual:52,flat:42.70,adjusted:40.82,overpay:1.88,annual:188000},
+    mc:{pTarget:78,pBreakeven:92,mean:34.80,p10:28.20,p50:34.50,p90:41.60},
+    mapCenter:{x:200,y:25}
+  },
+  {
+    id:"MT-007", name:"Thompson River Lumber", city:"Thompson Falls", state:"MT",
+    lat:47.59, lon:-115.55, owner:"TRLC",
+    species:["Douglas-fir","Grand Fir"], cap:"35 MMBF/yr",
+    notes:"Western Montana, Sanders County",
+    supply:{total:7200, df:40, lp:10, wl:15, pp:5, other:30},
+    ownership:{usfs:65, state:12, private:23},
+    gdr:1.9, competing:[
+      {name:"Sun Mountain Lumber",overlap:35},{name:"Idaho Forest Group",overlap:25},
+      {name:"F.H. Stoltze",overlap:10}
+    ],
+    cost:{stumpage:195,logging:140,haul:105,delivered:440,spread:245},
+    moisture:{assumed:50,actual:53,flat:42.70,adjusted:40.10,overpay:2.60,annual:260000},
+    mc:{pTarget:76,pBreakeven:91,mean:35.40,p10:28.80,p50:35.20,p90:42.20},
+    mapCenter:{x:120,y:55}
+  },
+  {
+    id:"ID-001", name:"Idaho Forest Group", city:"Lewiston", state:"ID",
+    lat:46.42, lon:-117.01, owner:"Riley Creek Lumber",
+    species:["W. Pine","Douglas-fir","Grand Fir"], cap:"200 MMBF/yr",
+    notes:"Idaho's largest sawmill operator",
+    supply:{total:15600, df:35, lp:15, wl:5, pp:25, other:20},
+    ownership:{usfs:55, state:18, private:27},
+    gdr:1.5, competing:[
+      {name:"Clearwater Paper",overlap:30},{name:"Bennett Lumber",overlap:22},
+      {name:"Thompson River Lumber",overlap:15},{name:"Potlatch",overlap:12}
+    ],
+    cost:{stumpage:185,logging:145,haul:125,delivered:455,spread:270},
+    moisture:{assumed:50,actual:54,flat:42.70,adjusted:39.48,overpay:3.22,annual:322000},
+    mc:{pTarget:70,pBreakeven:87,mean:37.10,p10:30.20,p50:37.00,p90:44.10},
+    mapCenter:{x:55,y:95}
+  },
+  {
+    id:"WA-003", name:"Sierra Pacific Industries", city:"Shelton", state:"WA",
+    lat:47.22, lon:-123.10, owner:"Sierra Pacific",
+    species:["Douglas-fir","W. Red Cedar","Hemlock"], cap:"120 MMBF/yr",
+    notes:"One of WA's largest private timber operators",
+    supply:{total:18200, df:55, lp:0, wl:0, pp:5, other:40},
+    ownership:{usfs:42, state:22, private:36},
+    gdr:2.1, competing:[
+      {name:"Weyerhaeuser Longview",overlap:35},{name:"Merrill & Ring",overlap:20},
+      {name:"Port Blakely",overlap:18}
+    ],
+    cost:{stumpage:280,logging:155,haul:95,delivered:530,spread:250},
+    moisture:{assumed:50,actual:58,flat:42.70,adjusted:36.42,overpay:6.28,annual:628000},
+    mc:{pTarget:68,pBreakeven:85,mean:38.50,p10:31.20,p50:38.30,p90:46.00},
+    mapCenter:{x:20,y:75}
+  }
 ];
 
-// ─── PRODUCT NAV (clickable) ────────────────────────────────────────────
-function ProductNav({active, onTab}) {
-  return e('div',{style:{display:'flex',gap:0,marginBottom:16,borderBottom:`1px solid ${T.rule}`}},
-    TABS.map(t=>e('div',{key:t.id,onClick:()=>onTab(t.id),style:{
-      padding:'8px 12px',fontSize:10,fontWeight:active===t.id?600:500,
-      letterSpacing:'0.1em',textTransform:'uppercase',cursor:'pointer',
-      color:active===t.id?T.accent:T.muted,
-      borderBottom:active===t.id?`2px solid ${T.accent}`:'2px solid transparent',
-      transition:'color 0.1s, border-color 0.1s',
-    }},t.label))
-  );
-}
+const SEASONS = [
+  {id:"normal",label:"Normal (Dry)",mult:1.0,ringScale:1.0},
+  {id:"frozen",label:"Frozen Ground",mult:1.05,ringScale:1.05},
+  {id:"winter",label:"Winter",mult:1.20,ringScale:0.85},
+  {id:"mud",label:"Mud / Breakup",mult:1.50,ringScale:0.65},
+];
 
-function Timestamp() {
-  return e('div',{style:{display:'flex',alignItems:'center',gap:4,fontSize:10,color:T.muted,marginBottom:12}},
-    e(IconRefresh,{size:10}),' Updated 8 min ago from BBER, MT DOR, IDL, WA DNR'
-  );
-}
+const SPECIES = [
+  {id:"df",label:"Douglas-fir",price:464},
+  {id:"lp",label:"Lodgepole Pine",price:426},
+  {id:"wl",label:"Western Larch",price:457},
+  {id:"pp",label:"Ponderosa Pine",price:375},
+  {id:"wrc",label:"W. Red Cedar",price:500},
+];
 
-// ─── SWIPE HOOK ─────────────────────────────────────────────────────────
-function useSwipe(onLeft, onRight) {
-  const touchStart = useRef(null);
-  const touchStartY = useRef(null);
-  const onTouchStart = useCallback(function(ev) {
-    touchStart.current = ev.touches[0].clientX;
-    touchStartY.current = ev.touches[0].clientY;
-  }, []);
-  const onTouchEnd = useCallback(function(ev) {
-    if (touchStart.current === null) return;
-    const dx = ev.changedTouches[0].clientX - touchStart.current;
-    const dy = ev.changedTouches[0].clientY - touchStartY.current;
-    touchStart.current = null;
-    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      if (dx < 0) onLeft();
-      else onRight();
-    }
-  }, [onLeft, onRight]);
-  return { onTouchStart, onTouchEnd };
-}
+// --- COUNTY FIA DATA (real counties, real centroids) ---
+const COUNTIES = [
+  {name:"Missoula",st:"MT",fips:"30063",vol:4200,cx:180,cy:88},
+  {name:"Ravalli",st:"MT",fips:"30081",vol:2800,cx:175,cy:108},
+  {name:"Mineral",st:"MT",fips:"30061",vol:3100,cx:145,cy:82},
+  {name:"Sanders",st:"MT",fips:"30089",vol:3400,cx:120,cy:65},
+  {name:"Lake",st:"MT",fips:"30047",vol:2600,cx:185,cy:60},
+  {name:"Flathead",st:"MT",fips:"30029",vol:5100,cx:200,cy:30},
+  {name:"Lincoln",st:"MT",fips:"30053",vol:4800,cx:170,cy:20},
+  {name:"Powell",st:"MT",fips:"30077",vol:2200,cx:195,cy:100},
+  {name:"Granite",st:"MT",fips:"30039",vol:1800,cx:200,cy:110},
+  {name:"Deer Lodge",st:"MT",fips:"30023",vol:1400,cx:210,cy:105},
+  {name:"Lewis & Clark",st:"MT",fips:"30049",vol:3200,cx:230,cy:80},
+  {name:"Shoshone",st:"ID",fips:"16079",vol:3800,cx:85,cy:55},
+  {name:"Benewah",st:"ID",fips:"16009",vol:2400,cx:70,cy:70},
+  {name:"Latah",st:"ID",fips:"16057",vol:1900,cx:60,cy:80},
+  {name:"Clearwater",st:"ID",fips:"16035",vol:4100,cx:50,cy:65},
+  {name:"Idaho",st:"ID",fips:"16049",vol:5200,cx:40,cy:90},
+  {name:"Bonner",st:"ID",fips:"16017",vol:3600,cx:95,cy:35},
+  {name:"Kootenai",st:"ID",fips:"16055",vol:2800,cx:80,cy:30},
+];
 
-// ─── DASHBOARD ──────────────────────────────────────────────────────────
-function DashboardView({onTab}) {
-  const [selectedSpecies, setSelectedSpecies] = useState(null);
+// --- MAP COMPONENT ---
+function ProductMap({mill, season, selectedCounty, onSelectCounty}) {
+  const w=360, h=220;
+  const cx = mill.mapCenter.x, cy = mill.mapCenter.y;
+  const rs = season.ringScale;
 
-  const speciesData = {
-    "W. Red Cedar": {delivered:500,stumpage:280,logging:120,haul:100,trend:[-23,-18,-12,-8,-15,-20,-23],src:"BBER Q1 2025"},
-    "Douglas-fir": {delivered:464,stumpage:212,logging:135,haul:117,trend:[2.1,3.5,4.8,5.2,6.1,7.5,8.7],src:"BBER Q1 2025"},
-    "W. Larch": {delivered:457,stumpage:200,logging:140,haul:117,trend:[1.2,2.0,3.1,4.5,5.0,6.2,7.0],src:"BBER Q1 2025"},
-    "Ponderosa": {delivered:375,stumpage:175,logging:110,haul:90,trend:[0.5,1.2,2.0,2.8,3.2,3.8,4.2],src:"BBER Q1 2025"},
-    "Grand Fir": {delivered:373,stumpage:185,logging:108,haul:80,trend:[1.0,0.2,-0.5,-1.2,-2.0,-2.8,-3.1],src:"BBER Q1 2025"},
-  };
-
-  const stats = [
-    {label:"NW STUMPAGE",value:"$212",sub:"/MBF",note:"MT DOR FY2023",color:T.text},
-    {label:"SPREAD",value:"$252",sub:"/MBF",note:"Logging + hauling",color:T.accent},
-    {label:"IDL ROLLING",value:"$306",sub:"/MBF",note:"Up 30% YoY",color:T.teal},
-  ];
-  const alerts = [
-    {text:"DF stumpage up 8.7% in NW zone since Q4",type:"up"},
-    {text:"Cedar spread widened $45/MBF vs. last month",type:"alert"},
-    {text:"IDL rolling avg hit $306/MBF, highest since 2022",type:"up"},
-  ];
-  const species = [
-    {sp:"W. Red Cedar",p:"$500",d:"-23%",down:true},
-    {sp:"Douglas-fir",p:"$464",d:"+8.7%",down:false},
-    {sp:"W. Larch",p:"$457",d:"+7.0%",down:false},
-    {sp:"Ponderosa",p:"$375",d:"+4.2%",down:false},
-    {sp:"Grand Fir",p:"$373",d:"-3.1%",down:true},
+  const contours = [
+    {d:"M20,60 Q60,20 120,35 T200,28 Q260,22 320,40 T350,35",c:T.rule},
+    {d:"M10,90 Q50,55 100,65 T180,50 Q230,40 290,58 T340,52",c:T.rule},
+    {d:"M15,120 Q70,90 130,100 T220,85 Q270,75 330,90 T355,85",c:T.rule},
+    {d:"M5,150 Q55,125 110,130 T200,118 Q260,112 320,128 T350,122",c:T.rule},
+    {d:"M10,175 Q60,155 120,162 T210,148 Q265,142 325,158 T355,150",c:T.rule},
+    {d:"M180,5 Q175,35 185,65 Q190,95 180,135 Q175,165 180,210",c:T.teal+'30',sw:1.5},
+    {d:"M120,0 Q115,20 125,45 Q140,65 180,80",c:T.teal+'20',sw:1},
+    {d:"M50,30 Q55,50 60,75 Q65,95 55,120",c:T.teal+'20',sw:1},
+    {d:"M10,85 L80,78 L180,85 L280,75 L350,80",c:T.muted+'40',sw:0.7},
+    {d:"M180,10 L180,85 L180,200",c:T.muted+'40',sw:0.7},
+    {d:"M30,40 L100,60 L180,85",c:T.muted+'30',sw:0.5},
   ];
 
-  const sel = selectedSpecies ? speciesData[selectedSpecies] : null;
+  const baseRadii = [22,38,55,72,90,108];
+  const ringRadii = baseRadii.map(function(r){return r * rs;});
+  const ringColors = [T.green,T.green,T.yellow,T.yellow,T.red,T.red];
 
-  // Mini sparkline
-  function Sparkline({data, color, w=80, h=24}) {
-    const min = Math.min(...data), max = Math.max(...data);
-    const range = max - min || 1;
-    const pts = data.map((v,i) => {
-      const x = (i/(data.length-1))*w;
-      const y = h - ((v-min)/range)*h;
-      return x+','+y;
-    }).join(' ');
-    return e('svg',{width:w,height:h,style:{display:'block'}},
-      e('polyline',{points:pts,fill:'none',stroke:color,strokeWidth:1.5})
-    );
-  }
-
-  return e('div',null,
-    e(ProductNav,{active:"dash",onTab:onTab}),
-    e(Timestamp),
-    // Hero price
-    e('div',{style:{marginBottom:24}},
-      e('div',{style:{fontSize:10,letterSpacing:'0.15em',textTransform:'uppercase',color:T.muted,marginBottom:4}},'DF DELIVERED — BBER Q1 2025'),
-      e('div',{style:{display:'flex',alignItems:'baseline',gap:8}},
-        e('span',{style:{fontSize:48,fontWeight:800,color:T.accent,lineHeight:1}},'$464'),
-        e('span',{style:{fontSize:14,color:T.muted}},'/MBF'),
-        e('span',{style:{fontSize:13,fontWeight:600,color:T.teal}},'+8.7%')
-      )
-    ),
-    // Stats grid
-    e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:0,marginBottom:24}},
-      stats.map((s,i)=>e('div',{key:i,style:{padding:'12px 0',paddingLeft:i%2===1?12:0,borderBottom:`1px solid ${T.rule}`,borderRight:i%2===0?`1px solid ${T.rule}`:'none'}},
-        e('div',{style:{fontSize:10,color:T.muted,letterSpacing:'0.1em',marginBottom:4}},s.label),
-        e('div',{style:{display:'flex',alignItems:'baseline',gap:2}},
-          e('span',{style:{fontSize:22,fontWeight:700,color:s.color}},s.value),
-          e('span',{style:{fontSize:11,color:T.muted}},s.sub)
-        ),
-        e('div',{style:{fontSize:9,color:T.text2,marginTop:2}},s.note)
-      ))
-    ),
-    // Alerts
-    e('div',{style:{marginBottom:24}},
-      e('div',{style:{fontSize:10,color:T.accent,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:8}},'ALERTS'),
-      alerts.map((a,i)=>e('div',{key:i,style:{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderBottom:i<alerts.length-1?`1px solid ${T.rule}`:'none'}},
-        e('div',{style:{width:4,height:4,background:a.type==="up"?T.teal:T.accent,flexShrink:0}}),
-        e('span',{style:{fontSize:11,color:T.text2,lineHeight:1.4}},a.text)
-      ))
-    ),
-    // Species table — interactive
-    e('div',null,
-      e('div',{style:{fontSize:10,color:T.muted,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:8}},'MT DELIVERED — BBER Q1 2025'),
-      e('div',{style:{fontSize:9,color:T.text2,marginBottom:8}},'Tap a species for breakdown'),
-      species.map((r,i)=>e('div',{key:r.sp},
-        e('div',{onClick:()=>setSelectedSpecies(selectedSpecies===r.sp?null:r.sp),style:{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:selectedSpecies===r.sp?'none':(i<4?`1px solid ${T.rule}`:'none'),cursor:'pointer'}},
-          e('div',{style:{display:'flex',alignItems:'center',gap:6}},
-            e('div',{style:{width:4,height:4,background:selectedSpecies===r.sp?T.accent:T.rule}}),
-            e('span',{style:{fontSize:12,fontWeight:selectedSpecies===r.sp?700:500,color:selectedSpecies===r.sp?T.text:T.text}},r.sp)
-          ),
-          e('div',{style:{display:'flex',alignItems:'center',gap:12}},
-            e('span',{style:{fontSize:12,fontWeight:700}},r.p),
-            e('span',{style:{fontSize:11,fontWeight:600,color:r.down?T.red:T.teal}},r.d)
-          )
-        ),
-        // Expanded detail
-        selectedSpecies===r.sp && sel && e('div',{style:{padding:'8px 0 12px',borderBottom:i<4?`1px solid ${T.rule}`:'none',background:T.surface,marginLeft:-20,marginRight:-20,paddingLeft:20,paddingRight:20}},
-          e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}},
-            e('div',null,
-              e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em',marginBottom:4}},'COST BREAKDOWN'),
-              e('div',{style:{fontSize:11,color:T.text2}},'Stumpage: $'+sel.stumpage),
-              e('div',{style:{fontSize:11,color:T.text2}},'Logging: $'+sel.logging),
-              e('div',{style:{fontSize:11,color:T.text2}},'Hauling: $'+sel.haul)
-            ),
-            e('div',{style:{textAlign:'right'}},
-              e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em',marginBottom:4}},'7-QTR TREND'),
-              e(Sparkline,{data:sel.trend,color:sel.trend[sel.trend.length-1]>=0?T.teal:T.red})
-            )
-          ),
-          e('div',{style:{fontSize:9,color:T.muted}},sel.src)
-        )
-      ))
-    )
-  );
-}
-
-// ─── BENCHMARKING ───────────────────────────────────────────────────────
-function BenchmarkView({onTab}) {
-  const [radiusMi, setRadiusMi] = useState(100);
-  const [expandedUnit, setExpandedUnit] = useState(null);
-
-  const allUnits = [
-    {name:"Bonner Creek",dist:25,delivered:377,vs:-6.2,stump:225,log:110,haul:42,species:"DF",volume:"3.2 MMBF",seller:"MT DNRC"},
-    {name:"Lolo Pass",dist:40,delivered:383,vs:-4.7,stump:210,log:115,haul:58,species:"DF, LP",volume:"2.8 MMBF",seller:"Plum Creek"},
-    {name:"Seeley Lake",dist:55,delivered:398,vs:-1.0,stump:195,log:125,haul:78,species:"DF, WL",volume:"4.1 MMBF",seller:"USFS"},
-    {name:"Superior",dist:90,delivered:420,vs:4.5,stump:145,log:150,haul:125,species:"DF, GF",volume:"2.1 MMBF",seller:"Private"},
-    {name:"Thompson Falls",dist:120,delivered:435,vs:8.2,stump:160,log:140,haul:135,species:"DF, WP",volume:"3.5 MMBF",seller:"IDL"},
-    {name:"St. Regis",dist:140,delivered:410,vs:2.0,stump:175,log:130,haul:105,species:"DF",volume:"1.8 MMBF",seller:"USFS"},
+  const allMills = [
+    {x:200,y:25,name:"Stoltze",st:"MT",id:"MT-001"},
+    {x:180,y:90,name:"Sun Mtn",st:"MT",id:"MT-005"},
+    {x:120,y:55,name:"Thompson R.",st:"MT",id:"MT-007"},
+    {x:280,y:118,name:"Livingston",st:"MT",id:"MT-006"},
+    {x:240,y:45,name:"Kalispell",st:"MT",id:"MT-003"},
+    {x:160,y:72,name:"Pyramid Mtn",st:"MT",id:"MT-004"},
+    {x:55,y:95,name:"IFG Lewis.",st:"ID",id:"ID-001"},
+    {x:60,y:108,name:"Clearwater",st:"ID",id:"ID-002"},
+    {x:70,y:55,name:"IFG St.Mar",st:"ID",id:"ID-003"},
+    {x:85,y:40,name:"Stimson",st:"ID",id:"ID-004"},
+    {x:45,y:75,name:"Bennett",st:"ID",id:"ID-005"},
+    {x:20,y:75,name:"SPI Shelton",st:"WA",id:"WA-003"},
+    {x:10,y:60,name:"Weyerh. LV",st:"WA",id:"WA-001"},
+    {x:15,y:95,name:"Boise Cas.",st:"WA",id:"WA-002"},
+    {x:330,y:140,name:"RY Timber",st:"OR",id:"OR-001"},
   ];
 
-  const units = allUnits.filter(u => u.dist <= radiusMi);
-  const regional = 402;
-  const barMax = 450;
-  const benchPct = (regional/barMax)*100;
+  var maxVol = 0;
+  for (var ci=0; ci<COUNTIES.length; ci++) { if(COUNTIES[ci].vol>maxVol) maxVol=COUNTIES[ci].vol; }
 
-  return e('div',null,
-    e(ProductNav,{active:"bench",onTab:onTab}),
-    e(Timestamp),
-    // Search / filter with interactive radius
-    e('div',{style:{display:'flex',gap:8,marginBottom:12}},
-      e('div',{style:{flex:1,display:'flex',alignItems:'center',gap:6,borderBottom:`1px solid ${T.rule}`,padding:'8px 0'}},
-        e(IconSearch,{size:12}),' ',e('span',{style:{fontSize:11,color:T.muted}},'Douglas-fir, NW Zone')
-      ),
-      e('div',{style:{display:'flex',alignItems:'center',gap:4,borderBottom:`1px solid ${T.rule}`,padding:'8px 0',fontSize:11,color:T.accent,fontWeight:600}},
-        e(IconFilter,{size:12}),' ',radiusMi+' mi'
-      )
-    ),
-    // Radius slider
-    e('div',{style:{marginBottom:16,padding:'8px 0'}},
-      e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}},
-        e('span',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},'SEARCH RADIUS'),
-        e('span',{style:{fontSize:11,fontWeight:600,color:T.accent}},radiusMi+' mi')
-      ),
-      e('input',{type:'range',min:25,max:200,step:5,value:radiusMi,
-        onChange:function(ev){setRadiusMi(parseInt(ev.target.value))},
-        style:{width:'100%'}
-      }),
-      e('div',{style:{display:'flex',justifyContent:'space-between',fontSize:9,color:T.muted,marginTop:4}},
-        e('span',null,'25 mi'),e('span',null,'200 mi')
-      )
-    ),
-    // Benchmark header
-    e('div',{style:{padding:'12px 0',marginBottom:16,borderBottom:`1px solid ${T.accent}`}},
-      e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline'}},
-        e('div',null,
-          e('div',{style:{fontSize:10,color:T.accent,fontWeight:600,letterSpacing:'0.15em'}},'REGIONAL BENCHMARK'),
-          e('div',{style:{fontSize:10,color:T.text2,marginTop:2}},'DF delivered, NW MT, Q1 2025')
-        ),
-        e('div',null,
-          e('span',{style:{fontSize:28,fontWeight:800,color:T.accent}},'$402'),
-          e('span',{style:{fontSize:11,fontWeight:400,color:T.muted}},'/MBF')
-        )
-      )
-    ),
-    // Source rows
-    e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}},
-      e('div',{style:{fontSize:10,color:T.muted,letterSpacing:'0.1em',textTransform:'uppercase'}},'ACTIVE SOURCES VS. BENCHMARK'),
-      e('div',{style:{fontSize:10,color:T.text2}},units.length+' sources')
-    ),
-    units.map(u=>{
-      const unitPct=(u.delivered/barMax)*100;
-      const isBelow=u.delivered<regional;
-      const isExpanded=expandedUnit===u.name;
-      return e('div',{key:u.name,style:{borderBottom:`1px solid ${T.rule}`}},
-        e('div',{onClick:()=>setExpandedUnit(isExpanded?null:u.name),style:{padding:'12px 0',cursor:'pointer'}},
-          e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:6}},
-            e('div',null,
-              e('span',{style:{fontSize:13,fontWeight:700}},u.name),
-              e('span',{style:{fontSize:11,color:T.muted,marginLeft:8}},u.dist+' mi')
-            ),
-            e('div',{style:{display:'flex',alignItems:'baseline',gap:8}},
-              e('span',{style:{fontSize:18,fontWeight:800}},'$'+u.delivered),
-              e('span',{style:{fontSize:11,fontWeight:600,color:isBelow?T.teal:T.red}},(isBelow?'':'+')+(u.vs)+'%')
-            )
-          ),
-          e('div',{style:{height:3,background:T.surfaceHi,position:'relative',overflow:'visible'}},
-            e('div',{style:{height:'100%',width:unitPct+'%',background:isBelow?T.teal:T.red,opacity:0.6}}),
-            e('div',{style:{position:'absolute',left:benchPct+'%',top:-4,width:2,height:11,background:T.accent}})
-          ),
-          e('div',{style:{fontSize:10,color:T.muted,marginTop:4}},'Stump $'+u.stump+' + Log $'+u.log+' + Haul $'+u.haul)
-        ),
-        // Expanded detail
-        isExpanded && e('div',{style:{padding:'0 0 12px',background:T.surface,marginLeft:-20,marginRight:-20,paddingLeft:20,paddingRight:20}},
-          e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:0}},
-            [{l:'SPECIES',v:u.species},{l:'VOLUME',v:u.volume},{l:'SELLER',v:u.seller},{l:'HAUL $/TON',v:'$'+(u.haul/25).toFixed(2)}].map((d,i)=>
-              e('div',{key:d.l,style:{padding:'6px 0',paddingLeft:i%2===1?12:0,borderRight:i%2===0?`1px solid ${T.rule}`:'none'}},
-                e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},d.l),
-                e('div',{style:{fontSize:11,fontWeight:600,color:T.text2}},d.v)
-              )
-            )
-          )
-        )
+  var stColors = {MT:T.text,ID:"#6BA3D6",WA:"#E89040",OR:"#D05050"};
+
+  return e('svg',{viewBox:'0 0 '+w+' '+h,width:'100%',style:{display:'block',background:T.surface}},
+    contours.map(function(c,i){return e('path',{key:'c'+i,d:c.d,fill:'none',stroke:c.c,strokeWidth:c.sw||0.5,opacity:0.6});}),
+    ringRadii.map(function(r,i){return e('ellipse',{key:'ring'+i,cx:cx,cy:cy,rx:r,ry:r*0.55,
+      fill:ringColors[i],fillOpacity:0.06,stroke:ringColors[i],strokeWidth:0.8,
+      opacity:0.5,strokeDasharray:i>3?'4,3':'none'
+    });}),
+    COUNTIES.map(function(c,i){
+      var r = 3 + (c.vol/maxVol)*10;
+      var isSel = selectedCounty && selectedCounty.fips===c.fips;
+      var dx = c.cx-cx, dy = c.cy-cy;
+      var dist = Math.sqrt(dx*dx+dy*dy);
+      var bColor = dist<38*rs ? T.green : dist<72*rs ? T.yellow : T.red;
+      return e('g',{key:'fia'+i,onClick:function(ev){ev.stopPropagation();onSelectCounty(isSel?null:c);},style:{cursor:'pointer'}},
+        e('circle',{cx:c.cx,cy:c.cy,r:r,fill:bColor,fillOpacity:isSel?0.4:0.15,stroke:isSel?T.accent:bColor,strokeWidth:isSel?1.5:0.5}),
+        r>6 && e('text',{x:c.cx,y:c.cy+2,textAnchor:'middle',fill:T.text2,fontSize:4.5,fontFamily:'JetBrains Mono'},c.name.substring(0,6))
       );
     }),
-    e('div',{style:{fontSize:10,color:T.text2,marginTop:12,lineHeight:1.5}},
-      'Sources: BBER quarterly, MT DOR stumpage, IDL auctions, WA DNR tables. All four states, updated quarterly.'
+    allMills.map(function(m,i){
+      var isSelected = m.id===mill.id;
+      var col = stColors[m.st]||T.text;
+      return e('g',{key:'m'+i},
+        isSelected ?
+          e('rect',{x:m.x-4,y:m.y-4,width:8,height:8,fill:T.accent,style:{animation:'pulse 2s infinite'}}) :
+          e('rect',{x:m.x-2,y:m.y-2,width:4,height:4,fill:col,opacity:0.7}),
+        isSelected && e('text',{x:m.x,y:m.y-7,textAnchor:'middle',fill:T.accent,fontSize:6,fontWeight:700,fontFamily:'JetBrains Mono'},mill.city.toUpperCase())
+      );
+    }),
+    e('text',{x:8,y:12,fill:T.muted+'80',fontSize:6,fontFamily:'JetBrains Mono'},'IDAHO'),
+    e('text',{x:250,y:12,fill:T.muted+'80',fontSize:6,fontFamily:'JetBrains Mono'},'MONTANA'),
+    e('text',{x:8,y:205,fill:T.muted+'60',fontSize:5,fontFamily:'JetBrains Mono'},'WASHINGTON'),
+    e('g',{transform:'translate(290,180)'},
+      e('rect',{x:0,y:0,width:6,height:6,fill:T.green,opacity:0.4}),
+      e('text',{x:9,y:5,fill:T.muted,fontSize:5,fontFamily:'JetBrains Mono'},'Profitable'),
+      e('rect',{x:0,y:10,width:6,height:6,fill:T.yellow,opacity:0.4}),
+      e('text',{x:9,y:15,fill:T.muted,fontSize:5,fontFamily:'JetBrains Mono'},'Marginal'),
+      e('rect',{x:0,y:20,width:6,height:6,fill:T.red,opacity:0.4}),
+      e('text',{x:9,y:25,fill:T.muted,fontSize:5,fontFamily:'JetBrains Mono'},'Uneconomic')
+    ),
+    e('text',{x:345,y:15,fill:T.muted+'60',fontSize:6,fontFamily:'JetBrains Mono'},'N\u2191'),
+    season.id!=="normal" && e('g',{transform:'translate(10,175)'},
+      e('rect',{x:0,y:0,width:88,height:14,fill:T.red+'30',rx:0}),
+      e('text',{x:4,y:10,fill:T.red,fontSize:5.5,fontWeight:700,fontFamily:'JetBrains Mono'},
+        season.id==="mud"?'MUD SEASON -35% RANGE':
+        season.id==="winter"?'WINTER -15% RANGE':
+        'FROZEN GROUND +5%')
     )
   );
 }
 
-// ─── MOISTURE ───────────────────────────────────────────────────────────
-function MoistureView({onTab}) {
-  const [assumedMC, setAssumedMC] = useState(50);
-  const basePrice=464;
-  const assumed=assumedMC/100;
-  const loads = [
-    {id:"TRK-0847",mc:0.37,tons:25.2,time:"7:14 AM"},
-    {id:"TRK-1203",mc:0.44,tons:24.8,time:"8:32 AM"},
-    {id:"TRK-0519",mc:0.52,tons:25.5,time:"9:47 AM"},
-    {id:"TRK-0962",mc:0.56,tons:24.1,time:"10:15 AM"},
-    {id:"TRK-1387",mc:0.41,tons:25.0,time:"11:03 AM"},
-  ];
-  const enriched=loads.map(l=>{
-    const adj=basePrice*(1-l.mc)/(1-assumed);
-    const delta=adj-basePrice;
-    return{...l,adjusted:adj.toFixed(0),delta:delta.toFixed(0),over:delta<0};
-  });
-  const totalDelta=enriched.reduce((s,l)=>s+parseFloat(l.delta),0);
-  const avgMC=(loads.reduce((s,l)=>s+l.mc,0)/loads.length*100).toFixed(1);
-  const totalValue=enriched.reduce((s,l)=>s+parseFloat(l.adjusted),0);
-
-  return e('div',null,
-    e(ProductNav,{active:"moisture",onTab:onTab}),
-    e(Timestamp),
-    e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:16}},
-      e('div',null,
-        e('div',{style:{fontSize:13,fontWeight:700}},"Today's Scale Log"),
-        e('div',{style:{fontSize:10,color:T.muted}},'Bonner Mill | DF | Flat $'+basePrice+'/MBF')
+// --- SUPPLY INTELLIGENCE PANEL ---
+function SupplyPanel({mill}) {
+  function Bar(props) {
+    return e('div',{style:{marginBottom:6}},
+      e('div',{style:{display:'flex',justifyContent:'space-between',fontSize:10,marginBottom:2}},
+        e('span',{style:{color:T.text2}},props.label),
+        e('span',{style:{color:T.text,fontWeight:600}},props.sub)
       ),
-      e('div',{style:{fontSize:10,color:T.accent,fontWeight:600,letterSpacing:'0.1em'}},'LIVE')
-    ),
-    // Assumed MC slider — interactive
-    e('div',{style:{marginBottom:16,padding:'8px 0',borderBottom:`1px solid ${T.rule}`}},
-      e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}},
-        e('span',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},'ASSUMED MOISTURE CONTENT'),
-        e('span',{style:{fontSize:13,fontWeight:700,color:T.accent}},assumedMC+'%')
-      ),
-      e('input',{type:'range',min:30,max:65,step:1,value:assumedMC,
-        onChange:function(ev){setAssumedMC(parseInt(ev.target.value))},
-        style:{width:'100%'}
-      }),
-      e('div',{style:{display:'flex',justifyContent:'space-between',fontSize:9,color:T.muted,marginTop:4}},
-        e('span',null,'30% (dry)'),e('span',null,'65% (green)')
-      ),
-      e('div',{style:{fontSize:9,color:T.text2,marginTop:6}},'Drag to see how assumed MC changes adjusted pricing across all loads')
-    ),
-    // Summary stats
-    e('div',{style:{display:'flex',gap:0,marginBottom:16,borderBottom:`1px solid ${T.rule}`}},
-      [{label:'AVG MC',value:avgMC+'%',color:parseFloat(avgMC)>50?T.red:T.accent},
-       {label:'LOADS',value:''+loads.length,color:T.text},
-       {label:'NET ADJUST',value:(totalDelta>0?'+':'')+'$'+totalDelta.toFixed(0),color:totalDelta<0?T.red:T.teal}
-      ].map((s,i)=>e('div',{key:i,style:{flex:1,padding:'8px 0',borderRight:i<2?`1px solid ${T.rule}`:'none',paddingLeft:i>0?12:0}},
-        e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},s.label),
-        e('div',{style:{fontSize:18,fontWeight:700,color:s.color}},s.value)
-      ))
-    ),
-    // Table header
-    e('div',{style:{display:'grid',gridTemplateColumns:'1fr 0.6fr 0.8fr 0.8fr 0.7fr',padding:'8px 0',borderBottom:`1px solid ${T.rule}`,fontSize:9,fontWeight:600,color:T.muted,letterSpacing:'0.1em'}},
-      e('span',null,'LOAD'),e('span',{style:{textAlign:'center'}},'MC'),e('span',{style:{textAlign:'right'}},'FLAT'),e('span',{style:{textAlign:'right'}},'ADJ'),e('span',{style:{textAlign:'right'}},'DELTA')
-    ),
-    // Table rows
-    enriched.map((l,i)=>e('div',{key:l.id,style:{display:'grid',gridTemplateColumns:'1fr 0.6fr 0.8fr 0.8fr 0.7fr',padding:'9px 0',alignItems:'center',borderBottom:i<enriched.length-1?`1px solid ${T.rule}`:'none'}},
-      e('div',null,
-        e('div',{style:{fontSize:12,fontWeight:600}},l.id),
-        e('div',{style:{fontSize:9,color:T.muted}},l.time+' | '+l.tons+'t')
-      ),
-      e('div',{style:{textAlign:'center',fontSize:12,fontWeight:700,color:l.mc>0.50?T.red:l.mc<0.42?T.teal:T.text}},(l.mc*100).toFixed(0)+'%'),
-      e('div',{style:{textAlign:'right',fontSize:12,color:T.muted}},'$'+basePrice),
-      e('div',{style:{textAlign:'right',fontSize:12,fontWeight:700}},'$'+l.adjusted),
-      e('div',{style:{textAlign:'right',fontSize:12,fontWeight:700,color:l.over?T.red:T.teal}},(l.over?'':'+')+'$'+l.delta)
-    )),
-    e('div',{style:{marginTop:16,fontSize:10,color:T.text2,lineHeight:1.5}},
-      'Runs alongside your existing scale system. Nothing changes about how you buy. You just see the adjusted value of every load as it crosses.'
-    )
-  );
-}
-
-// ─── WOOD BASKET ────────────────────────────────────────────────────────
-function BasketView({onTab}) {
-  const [selectedZone, setSelectedZone] = useState(null);
-
-  const mills = [
-    {name:"Stoltze Land & Lumber",loc:"Columbia Falls, MT",dist:"115 mi",species:"DF, WP, Larch",cap:"50 MMBF/yr",lat:48.37,lng:-114.18},
-    {name:"Sun Mountain Lumber",loc:"Deer Lodge, MT",dist:"95 mi",species:"LP, DF",cap:"~2 MMBF/wk",lat:46.40,lng:-112.73},
-    {name:"Sun Mountain (Livingston)",loc:"Livingston, MT",dist:"116 mi",species:"LP, DF",cap:"Studs, ramping",lat:45.66,lng:-110.56},
-    {name:"Idaho Forest Group",loc:"St. Maries, ID",dist:"180 mi",species:"WP, DF, GF",cap:"200 MMBF/yr",lat:47.31,lng:-116.56},
-    {name:"Clearwater Paper",loc:"Lewiston, ID",dist:"210 mi",species:"Pulp, chips",cap:"n/a",lat:46.42,lng:-117.01},
-  ];
-  const zones = [
-    {ring:"0-35 mi",haul:"$9.50/ton",pct:"13%",color:T.teal,idx:0},
-    {ring:"35-60 mi",haul:"$14.00/ton",pct:"19%",color:T.accent,idx:1},
-    {ring:"60-100 mi",haul:"$19.00/ton",pct:"26%",color:"#E0B04B",idx:2},
-    {ring:"100-150 mi",haul:"$25.00/ton",pct:"34%",color:T.red,idx:3},
-  ];
-
-  // Topographic map SVG
-  function TopoMap() {
-    const w=360, h=180;
-    // Contour paths representing terrain
-    const contours = [
-      {d:"M20,90 Q60,30 120,50 T200,40 Q260,35 320,60 T350,55", color:T.rule},
-      {d:"M10,110 Q50,70 100,80 T180,65 Q230,55 290,75 T340,70", color:T.rule},
-      {d:"M15,130 Q70,100 130,110 T220,95 Q270,85 330,100 T355,95", color:T.rule},
-      {d:"M5,150 Q55,130 110,135 T200,125 Q260,120 320,135 T350,130", color:T.rule},
-      // Rivers
-      {d:"M180,10 Q175,40 185,70 Q190,100 180,140 Q175,160 180,180", color:T.teal+'40', sw:1.5},
-      {d:"M120,0 Q115,25 125,50 Q140,70 180,85", color:T.teal+'30', sw:1},
-      // Roads
-      {d:"M40,90 L100,85 L180,90 L260,80 L340,85", color:T.muted+'50', sw:0.7},
-      {d:"M180,20 L180,90 L180,165", color:T.muted+'50', sw:0.7},
-    ];
-
-    // Mill positions mapped to SVG coords (approximate geographic positions)
-    const millDots = [
-      {x:200,y:25,name:"Stoltze"},      // Columbia Falls — north
-      {x:160,y:95,name:"Sun Mtn"},       // Deer Lodge — central
-      {x:280,y:120,name:"Livingston"},    // Livingston — east
-      {x:50,y:60,name:"IFG"},            // St. Maries — west ID
-      {x:60,y:100,name:"Clearwater"},     // Lewiston — west ID
-    ];
-
-    const ringRadii = [35,55,80,110];
-    const ringColors = [T.teal,T.accent,'#E0B04B',T.red];
-
-    return e('svg',{viewBox:'0 0 '+w+' '+h,width:'100%',height:h,style:{display:'block'}},
-      // Background terrain fill
-      e('rect',{x:0,y:0,width:w,height:h,fill:T.surface}),
-      // Contour lines
-      contours.map((c,i)=>e('path',{key:'c'+i,d:c.d,fill:'none',stroke:c.color||T.rule,strokeWidth:c.sw||0.5,opacity:0.7})),
-      // Isochrone rings (ellipses for road-network approximation)
-      ringRadii.map((r,i)=>e('ellipse',{key:'r'+i,cx:180,cy:90,rx:r,ry:r*0.65,
-        fill:'none',stroke:ringColors[i],strokeWidth:selectedZone===i?1.5:0.7,
-        opacity:selectedZone===i?0.8:0.3,strokeDasharray:selectedZone===i?'none':'4,3',
-        style:{cursor:'pointer'},
-        onClick:function(){setSelectedZone(selectedZone===i?null:i)}
-      })),
-      // Center point (Missoula)
-      e('rect',{x:177,y:87,width:6,height:6,fill:T.accent}),
-      e('text',{x:180,y:82,textAnchor:'middle',fill:T.accent,fontSize:7,fontFamily:'JetBrains Mono'},'MISSOULA'),
-      // Mill dots
-      millDots.map((m,i)=>e('g',{key:'m'+i},
-        e('rect',{x:m.x-2,y:m.y-2,width:4,height:4,fill:T.accent,opacity:0.8}),
-        e('text',{x:m.x,y:m.y-5,textAnchor:'middle',fill:T.text2,fontSize:5.5,fontFamily:'JetBrains Mono'},m.name)
-      )),
-      // Geographic labels
-      e('text',{x:15,y:15,fill:T.muted,fontSize:6,fontFamily:'JetBrains Mono'},'IDAHO'),
-      e('text',{x:250,y:15,fill:T.muted,fontSize:6,fontFamily:'JetBrains Mono'},'MONTANA'),
-      e('text',{x:330,y:170,fill:T.muted+'60',fontSize:5,fontFamily:'JetBrains Mono'},'N\u2191')
+      e('div',{style:{height:3,background:T.surfaceHi}},
+        e('div',{style:{height:'100%',width:props.pct+'%',background:props.color}})
+      )
     );
   }
+  return e('div',null,
+    e('div',{style:{marginBottom:16}},
+      e('div',{style:{fontSize:9,color:T.accent,letterSpacing:'0.15em',fontWeight:600}},'AVAILABLE SAWTIMBER'),
+      e('div',{style:{display:'flex',alignItems:'baseline',gap:4}},
+        e('span',{style:{fontSize:32,fontWeight:800,color:T.accent,lineHeight:1}},mill.supply.total.toLocaleString()),
+        e('span',{style:{fontSize:11,color:T.muted}},'MMBF')
+      ),
+      e('div',{style:{fontSize:9,color:T.text2}},'Within profitable procurement range')
+    ),
+    e('div',{style:{marginBottom:16}},
+      e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em',marginBottom:6}},'SPECIES MIX'),
+      Bar({pct:mill.supply.df,color:T.accent,label:'Douglas-fir',sub:mill.supply.df+'%  $464/MBF'}),
+      Bar({pct:mill.supply.wl,color:T.teal,label:'W. Larch',sub:mill.supply.wl+'%  $457/MBF'}),
+      Bar({pct:mill.supply.lp,color:T.green,label:'Lodgepole',sub:mill.supply.lp+'%  $426/MBF'}),
+      Bar({pct:mill.supply.pp,color:T.yellow,label:'Ponderosa',sub:mill.supply.pp+'%  $375/MBF'}),
+      Bar({pct:mill.supply.other,color:T.muted,label:'Other',sub:mill.supply.other+'%'})
+    ),
+    e('div',{style:{marginBottom:16}},
+      e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em',marginBottom:6}},'OWNERSHIP'),
+      Bar({pct:mill.ownership.usfs,color:T.green,label:'National Forest',sub:mill.ownership.usfs+'%'}),
+      Bar({pct:mill.ownership.state,color:'#6BA3D6',label:'State DNRC/IDL',sub:mill.ownership.state+'%'}),
+      Bar({pct:mill.ownership.private,color:T.yellow,label:'Private',sub:mill.ownership.private+'%'})
+    ),
+    e('div',{style:{marginBottom:16,padding:'8px 0',borderTop:'1px solid '+T.rule,borderBottom:'1px solid '+T.rule}},
+      e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em',marginBottom:6}},'SUPPLY HEALTH'),
+      e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline'}},
+        e('span',{style:{fontSize:10,color:T.text2}},'Growth-to-drain'),
+        e('span',{style:{fontSize:14,fontWeight:700,color:mill.gdr>=1.5?T.teal:T.yellow}},mill.gdr+'x')
+      ),
+      e('div',{style:{fontSize:9,color:T.teal,marginTop:2}},mill.gdr>=1.5?'Growing faster than harvested':'Monitor supply balance')
+    ),
+    e('div',null,
+      e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em',marginBottom:6}},'COMPETING MILLS'),
+      mill.competing.map(function(c,i){return e('div',{key:i,style:{display:'flex',justifyContent:'space-between',padding:'4px 0',borderBottom:i<mill.competing.length-1?'1px solid '+T.rule:'none'}},
+        e('span',{style:{fontSize:10,color:T.text2}},c.name),
+        e('span',{style:{fontSize:10,fontWeight:600,color:c.overlap>25?T.red:T.yellow}},c.overlap+'% overlap')
+      );})
+    )
+  );
+}
+
+// --- BID RECOMMENDATION CARD ---
+function BidCard({mill, county, season, diesel, stumpageAsk, mcActual}) {
+  var haulMult = season.mult;
+  var adjHaul = Math.round(mill.cost.haul * haulMult);
+  var adjDelivered = stumpageAsk + mill.cost.logging + adjHaul;
+  var assumed = mill.moisture.assumed/100;
+  var actual = mcActual/100;
+  var flatPrice = mill.moisture.flat;
+  var adjPrice = (flatPrice * (1-actual)/(1-assumed));
+  var overpay = flatPrice - adjPrice;
+  var annualWaste = Math.round(overpay * 100000);
+  var dieselDelta = (diesel - 3.10) * 4.0;
+  var finalDelivered = adjDelivered + Math.round(dieselDelta);
+  var pTarget = Math.max(40, Math.min(95, mill.mc.pTarget - (season.mult-1)*80 + (stumpageAsk<212?8:-5)));
+  var rec = pTarget >= 65 ? "BID" : pTarget >= 50 ? "CAUTIOUS" : "PASS";
+  var recColor = rec==="BID"?T.teal:rec==="CAUTIOUS"?T.yellow:T.red;
 
   return e('div',null,
-    e(ProductNav,{active:"basket",onTab:onTab}),
-    e(Timestamp),
-    // Map visualization — topographic style
-    e('div',{style:{marginBottom:16,borderBottom:`1px solid ${T.rule}`,paddingBottom:8}},
-      e(TopoMap),
-      e('div',{style:{fontSize:9,color:T.muted,marginTop:6}},'Missoula, MT | Haul-cost isochrones (road-network) | Tap rings to filter')
+    e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}},
+      e('div',{style:{fontSize:9,color:T.accent,letterSpacing:'0.15em',fontWeight:700}},'BID RECOMMENDATION'),
+      e('div',{style:{padding:'3px 8px',background:recColor+'20',border:'1px solid '+recColor,fontSize:11,fontWeight:800,color:recColor}},rec)
     ),
-    // Profit rings — interactive
-    e('div',{style:{marginBottom:24}},
-      e('div',{style:{fontSize:10,color:T.accent,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:8}},'PROFIT RINGS'),
-      e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:0}},
-        zones.map((z,i)=>e('div',{key:z.ring,onClick:()=>setSelectedZone(selectedZone===z.idx?null:z.idx),style:{display:'flex',alignItems:'center',gap:8,padding:'8px 0',paddingLeft:i%2===1?12:0,borderBottom:`1px solid ${T.rule}`,borderRight:i%2===0?`1px solid ${T.rule}`:'none',cursor:'pointer',background:selectedZone===z.idx?T.surfaceHi:'transparent'}},
-          e('div',{style:{width:4,height:4,background:z.color,flexShrink:0}}),
-          e('div',null,
-            e('div',{style:{fontSize:11,fontWeight:selectedZone===z.idx?700:600,color:selectedZone===z.idx?T.text:T.text}},z.ring),
-            e('div',{style:{fontSize:9,color:T.muted}},z.haul+' ('+z.pct+' of gate)')
-          )
-        ))
+    county && e('div',{style:{fontSize:10,color:T.text2,marginBottom:12}},
+      county.name+' County, '+county.st+' | '+season.label
+    ),
+    e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:0,marginBottom:12}},
+      e('div',{style:{padding:'8px 0',borderRight:'1px solid '+T.rule}},
+        e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},'DELIVERED COST'),
+        e('div',{style:{display:'flex',alignItems:'baseline',gap:2}},
+          e('span',{style:{fontSize:28,fontWeight:800,color:T.accent}},'$'+finalDelivered),
+          e('span',{style:{fontSize:10,color:T.muted}},'/MBF')
+        )
       ),
-      selectedZone!==null && e('div',{style:{marginTop:8,padding:'8px 0',borderBottom:`1px solid ${T.rule}`}},
-        e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em',marginBottom:4}},'ZONE DETAIL'),
-        e('div',{style:{fontSize:11,color:T.text2,lineHeight:1.6}},
-          selectedZone===0?'Prime zone. Lowest haul cost, highest margin. Most competitive — every mill in range fights for this wood.':
-          selectedZone===1?'Core procurement zone. Moderate haul cost, strong margins. Sweet spot for most operations.':
-          selectedZone===2?'Extended zone. Haul cost starts eating margin. Worth it for premium species or high stumpage spreads.':
-          'Outer ring. Only pencils on high-value sorts or when closer supply is tight. Monitor, don\u2019t chase.'
+      e('div',{style:{padding:'8px 0 8px 12px'}},
+        e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},'BID CONFIDENCE'),
+        e('div',{style:{display:'flex',alignItems:'baseline',gap:2}},
+          e('span',{style:{fontSize:28,fontWeight:800,color:pTarget>=65?T.teal:T.yellow}},Math.round(pTarget)+'%'),
+          e('span',{style:{fontSize:9,color:T.muted}},'at 15% margin')
         )
       )
     ),
-    // Competing mills
+    e('div',{style:{marginBottom:12}},
+      e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em',marginBottom:6}},'COST BREAKDOWN'),
+      [{l:'Stumpage',v:'$'+stumpageAsk,pct:Math.round(stumpageAsk/finalDelivered*100),note:''},
+       {l:'Logging',v:'$'+mill.cost.logging,pct:Math.round(mill.cost.logging/finalDelivered*100),note:''},
+       {l:'Hauling',v:'$'+adjHaul,pct:Math.round(adjHaul/finalDelivered*100),note:season.id!=='normal'?season.mult+'x seasonal':''},
+      ].map(function(r,i){return e('div',{key:i,style:{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'4px 0',borderBottom:'1px solid '+T.rule}},
+        e('span',{style:{fontSize:10,color:T.text2}},r.l),
+        e('div',{style:{display:'flex',alignItems:'center',gap:8}},
+          r.note && e('span',{style:{fontSize:8,color:T.yellow}},r.note),
+          e('span',{style:{fontSize:12,fontWeight:700}},r.v),
+          e('span',{style:{fontSize:9,color:T.muted}},r.pct+'%')
+        )
+      );})
+    ),
+    e('div',{style:{marginBottom:12,padding:'8px 0',borderBottom:'1px solid '+T.rule}},
+      e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em',marginBottom:6}},'MOISTURE GAP'),
+      e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:0}},
+        [{l:'FLAT PRICE',v:'$'+flatPrice.toFixed(2),c:T.muted},
+         {l:'ADJ ('+mcActual+'% MC)',v:'$'+adjPrice.toFixed(2),c:T.accent},
+         {l:'OVERPAY/TON',v:'$'+overpay.toFixed(2),c:T.red},
+        ].map(function(d,i){return e('div',{key:i,style:{paddingLeft:i>0?8:0,borderLeft:i>0?'1px solid '+T.rule:'none'}},
+          e('div',{style:{fontSize:8,color:T.muted,letterSpacing:'0.1em'}},d.l),
+          e('div',{style:{fontSize:14,fontWeight:700,color:d.c}},d.v)
+        );})
+      ),
+      e('div',{style:{fontSize:10,color:T.red,fontWeight:600,marginTop:6}},
+        'Annual waste at 100K tons: $'+annualWaste.toLocaleString()
+      )
+    ),
     e('div',null,
-      e('div',{style:{fontSize:10,color:T.muted,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:8}},'COMPETING MILLS IN RANGE'),
-      mills.map((m,i)=>e('div',{key:m.name,style:{padding:'8px 0',borderBottom:i<mills.length-1?`1px solid ${T.rule}`:'none'}},
-        e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline'}},
-          e('span',{style:{fontSize:12,fontWeight:600}},m.name),
-          e('span',{style:{fontSize:11,color:T.accent,fontWeight:600}},m.dist)
-        ),
-        e('div',{style:{fontSize:10,color:T.muted,marginTop:2}},m.loc+' | '+m.species+' | '+m.cap)
-      ))
+      e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em',marginBottom:6}},'MONTE CARLO (500K ITERATIONS)'),
+      e('div',{style:{display:'flex',gap:0}},
+        [{l:'P10',v:'$'+mill.mc.p10},{l:'MEDIAN',v:'$'+mill.mc.p50},{l:'P90',v:'$'+mill.mc.p90}].map(function(d,i){
+          return e('div',{key:i,style:{flex:1,paddingLeft:i>0?8:0,borderLeft:i>0?'1px solid '+T.rule:'none'}},
+            e('div',{style:{fontSize:8,color:T.muted}},d.l),
+            e('div',{style:{fontSize:12,fontWeight:700}},d.v)
+          );
+        })
+      ),
+      e('div',{style:{display:'flex',alignItems:'flex-end',gap:1,height:24,marginTop:8}},
+        [3,7,14,22,28,32,28,22,14,8,5,3,2,1].map(function(h,i){
+          return e('div',{key:i,style:{flex:1,height:h+'%',minHeight:1,background:i<4?T.green:i<9?T.accent:i<11?T.yellow:T.red,opacity:0.6}});
+        })
+      ),
+      e('div',{style:{display:'flex',justifyContent:'space-between',fontSize:8,color:T.muted,marginTop:2}},
+        e('span',null,'$28/ton'),e('span',null,'$46/ton')
+      )
     )
   );
 }
 
-// ─── CTA ────────────────────────────────────────────────────────────────
+// --- WHAT-IF SLIDERS ---
+function WhatIfSliders({diesel,setDiesel,stumpageAsk,setStumpageAsk,mcActual,setMcActual}) {
+  function Slider(props) {
+    return e('div',{style:{marginBottom:10}},
+      e('div',{style:{display:'flex',justifyContent:'space-between',fontSize:9,marginBottom:3}},
+        e('span',{style:{color:T.muted,letterSpacing:'0.1em'}},props.label),
+        e('span',{style:{color:T.accent,fontWeight:700,fontSize:11}},props.fmt(props.value))
+      ),
+      e('input',{type:'range',min:props.min,max:props.max,step:props.step,value:props.value,onChange:function(ev){props.onChange(parseFloat(ev.target.value));},style:{width:'100%'}}),
+      e('div',{style:{display:'flex',justifyContent:'space-between',fontSize:8,color:T.muted,marginTop:1}},
+        e('span',null,props.fmt(props.min)),e('span',null,props.fmt(props.max))
+      )
+    );
+  }
+  return e('div',{style:{padding:'8px 0',borderTop:'1px solid '+T.rule}},
+    e('div',{style:{fontSize:9,color:T.accent,letterSpacing:'0.15em',fontWeight:600,marginBottom:8}},'WHAT-IF CONTROLS'),
+    Slider({label:'DIESEL',value:diesel,min:2.50,max:5.50,step:0.10,fmt:function(v){return '$'+v.toFixed(2)+'/gal';},onChange:setDiesel}),
+    Slider({label:'STUMPAGE ASK',value:stumpageAsk,min:100,max:400,step:5,fmt:function(v){return '$'+v+'/MBF';},onChange:setStumpageAsk}),
+    Slider({label:'ACTUAL MC',value:mcActual,min:35,max:65,step:1,fmt:function(v){return v+'%';},onChange:setMcActual})
+  );
+}
+
+// --- CTA SCREEN ---
 function CTAScreen({onBack}) {
   return e('div',{style:{padding:'40px 0',flex:1,display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'flex-start'}},
     e('div',{style:{fontSize:10,color:T.accent,letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:8}},'KYTHEREX'),
-    e('div',{style:{fontSize:22,fontWeight:700,lineHeight:1.3,marginBottom:8}},'This is what KYTHEREX looks like.'),
+    e('div',{style:{fontSize:22,fontWeight:700,lineHeight:1.3,marginBottom:8}},'This is what procurement intelligence looks like.'),
     e('div',{style:{fontFamily:"'Space Grotesk', sans-serif",fontSize:13,color:T.text2,lineHeight:1.7,marginBottom:32,maxWidth:300}},
-      'Everything you just saw runs on public data. Plug in your numbers and it gets a lot more specific. Sits on top of whatever systems you already run. Nothing to rip out.'
+      'Everything you just saw runs on public data. Plug in your mill and it gets specific. Sits on top of whatever systems you already run. Nothing to rip out.'
     ),
-    e('div',{style:{display:'flex',gap:24,marginBottom:32}},
+    e('div',{style:{display:'flex',gap:24,marginBottom:24}},
       e('div',null,
-        e('div',{style:{fontSize:22,fontWeight:800,color:T.accent}},'$0.50'),
+        e('div',{style:{fontSize:22,fontWeight:800,color:T.accent}},'$0.25-$0.75'),
         e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},'PER MBF')
       ),
       e('div',{style:{width:1,background:T.rule}}),
@@ -568,107 +495,191 @@ function CTAScreen({onBack}) {
         e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},'TYPICAL ROI')
       )
     ),
-    e('div',{style:{width:'100%',maxWidth:300,marginBottom:24,borderBottom:`1px solid ${T.rule}`,paddingBottom:24}},
+    e('div',{style:{marginBottom:24,padding:'12px 0',borderTop:'1px solid '+T.rule,borderBottom:'1px solid '+T.rule}},
+      e('div',{style:{fontSize:10,color:T.muted,letterSpacing:'0.1em',marginBottom:8}},'WHAT 1-2.5% IMPROVEMENT MEANS'),
+      e('div',{style:{display:'flex',gap:16}},
+        e('div',null,
+          e('div',{style:{fontSize:18,fontWeight:800,color:T.accent}},'$116K-$290K'),
+          e('div',{style:{fontSize:9,color:T.text2}},'Annual savings per mill')
+        ),
+        e('div',null,
+          e('div',{style:{fontSize:18,fontWeight:800,color:T.teal}},'~$12,500'),
+          e('div',{style:{fontSize:9,color:T.text2}},'Avg annual cost')
+        )
+      )
+    ),
+    e('div',{style:{marginBottom:24}},
+      e('div',{style:{fontSize:10,color:T.muted,letterSpacing:'0.1em',marginBottom:8}},'THE GAP WE FILL'),
+      e('div',{style:{fontFamily:"'Space Grotesk', sans-serif",fontSize:12,color:T.text2,lineHeight:1.6}},
+        '200-400 mid-market US sawmills. Zero predictive analytics tools. 70-75% of operating costs are log procurement. 43 hrs/week wasted on manual admin. Only 41% use any dedicated software.'
+      )
+    ),
+    e('div',{style:{width:'100%',maxWidth:300,marginBottom:24,borderBottom:'1px solid '+T.rule,paddingBottom:24}},
       e('div',{style:{fontSize:13,fontWeight:700,marginBottom:12}},'Want to see it with your numbers?'),
       e('div',{style:{display:'flex',alignItems:'center',gap:6,marginBottom:8,fontSize:13,color:T.text2}},e(IconPhone,{size:13}),' Gillian Shannon'),
       e('div',{style:{display:'flex',alignItems:'center',gap:6,fontSize:12,color:T.muted}},e(IconMail,{size:13}),' shannongillian2@gmail.com')
     ),
-    e('button',{onClick:onBack,style:{background:'transparent',border:`1px solid ${T.rule}`,padding:'10px 20px',color:T.text2,fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:6}},
-      e(IconLeft,{size:14}),' Back to features'
+    e('div',{style:{fontSize:10,color:T.muted,marginBottom:16}},'STRATHEX, INC. | Built in Montana, for Montana.'),
+    e('button',{onClick:onBack,style:{background:'transparent',border:'1px solid '+T.rule,padding:'10px 20px',color:T.text2,fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:6}},
+      e(IconLeft,{size:14}),' Back to product'
     )
   );
 }
 
-// ─── SCENARIOS (for home tiles) ─────────────────────────────────────────
-const SCENARIO_CAPTIONS = {
-  dash:"Every public pricing source across MT, ID, WA, OR. Updated automatically. One login.",
-  bench:"Your active timber sales benchmarked against regional delivered costs. The math you already do, consolidated and current.",
-  moisture:"Runs alongside your existing scale system. Same buying process. You just see the adjusted value of every load as it crosses.",
-  basket:"Haul-cost isochrones on actual road networks, not radius circles. See who\u2019s competing for the same wood and where your cost advantage lives.",
-};
-
-const TAB_COMPONENTS = {dash:DashboardView, bench:BenchmarkView, moisture:MoistureView, basket:BasketView};
-
-// ─── APP ────────────────────────────────────────────────────────────────
+// --- MAIN APP ---
 function App() {
-  const [view,setView] = useState("home");
-  const [activeTab,setActiveTab] = useState("dash");
-  const containerRef = useRef(null);
+  var _s = useState(0); var millIdx=_s[0]; var setMillIdx=_s[1];
+  var _s2 = useState(0); var seasonIdx=_s2[0]; var setSeasonIdx=_s2[1];
+  var _s3 = useState("df"); var speciesId=_s3[0]; var setSpeciesId=_s3[1];
+  var _s4 = useState("product"); var view=_s4[0]; var setView=_s4[1];
+  var _s5 = useState(null); var selectedCounty=_s5[0]; var setSelectedCounty=_s5[1];
+  var _s6 = useState(false); var drawerOpen=_s6[0]; var setDrawerOpen=_s6[1];
+  var _s7 = useState(3.10); var diesel=_s7[0]; var setDiesel=_s7[1];
+  var _s8 = useState(212); var stumpageAsk=_s8[0]; var setStumpageAsk=_s8[1];
+  var _s9 = useState(55); var mcActual=_s9[0]; var setMcActual=_s9[1];
+  var containerRef = useRef(null);
+
+  var mill = MILLS[millIdx];
+  var season = SEASONS[seasonIdx];
 
   function scrollTop(){if(containerRef.current)containerRef.current.scrollTop=0;}
-  function openTab(id){setActiveTab(id);setView("feature");scrollTop();}
-  function goHome(){setView("home");scrollTop();}
-  function goCTA(){setView("cta");scrollTop();}
 
-  const tabIdx = TABS.findIndex(t=>t.id===activeTab);
-  const swipeLeft = useCallback(function(){
-    if(view==="feature" && tabIdx<TABS.length-1){
-      setActiveTab(TABS[tabIdx+1].id);scrollTop();
-    }
-  },[view,tabIdx]);
-  const swipeRight = useCallback(function(){
-    if(view==="feature" && tabIdx>0){
-      setActiveTab(TABS[tabIdx-1].id);scrollTop();
-    }
-  },[view,tabIdx]);
-  const swipeHandlers = useSwipe(swipeLeft, swipeRight);
-
-  const Comp = TAB_COMPONENTS[activeTab];
+  useEffect(function(){
+    if(selectedCounty) setDrawerOpen(true);
+  },[selectedCounty]);
 
   return e('div',{style:{background:T.bg,color:T.text,height:'100dvh',maxWidth:480,margin:'0 auto',position:'relative',display:'flex',flexDirection:'column'}},
-    // Header
-    e('div',{style:{padding:'16px 20px 12px',borderBottom:`1px solid ${T.rule}`,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}},
-      e('div',{onClick:view!=="home"?goHome:undefined,style:{cursor:view!=="home"?'pointer':'default'}},
-        e('div',{style:{fontSize:16,fontWeight:700,letterSpacing:'0.2em',color:T.accent}},'KYTHEREX'),
-        e('div',{style:{fontSize:9,fontWeight:400,letterSpacing:'0.15em',color:T.muted,marginTop:1}},'TIMBER PROCUREMENT ANALYTICS')
+    // HEADER
+    e('div',{style:{padding:'12px 16px 8px',borderBottom:'1px solid '+T.rule,flexShrink:0}},
+      e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}},
+        e('div',{onClick:view!=="product"?function(){setView("product");scrollTop();}:undefined,style:{cursor:view!=="product"?'pointer':'default'}},
+          e('div',{style:{fontSize:14,fontWeight:700,letterSpacing:'0.2em',color:T.accent}},'KYTHEREX'),
+          e('div',{style:{fontSize:8,fontWeight:400,letterSpacing:'0.12em',color:T.muted,marginTop:1}},'TIMBER PROCUREMENT ANALYTICS')
+        ),
+        e('div',{style:{display:'flex',alignItems:'center',gap:4,fontSize:9,color:T.muted}},
+          e(IconRefresh,{size:9}),' BBER Q1 2025'
+        )
       ),
-      view!=="home" && e('button',{onClick:goHome,style:{background:'none',border:`1px solid ${T.rule}`,padding:'5px 10px',cursor:'pointer',display:'flex',alignItems:'center',gap:4,color:T.text2,fontSize:11}},
-        e(IconX,{size:12}),' Close'
+      view==="product" && e('div',{style:{display:'flex',gap:6}},
+        e('select',{value:millIdx,onChange:function(ev){setMillIdx(parseInt(ev.target.value));setSelectedCounty(null);setDrawerOpen(false);},style:{flex:2,fontSize:10}},
+          MILLS.map(function(m,i){return e('option',{key:i,value:i},m.name+' ('+m.city+', '+m.state+')');})
+        ),
+        e('select',{value:seasonIdx,onChange:function(ev){setSeasonIdx(parseInt(ev.target.value));},style:{flex:1,fontSize:10}},
+          SEASONS.map(function(s,i){return e('option',{key:i,value:i},s.label);})
+        )
       )
     ),
-    // Content — swipeable
-    e('div',Object.assign({ref:containerRef,style:{padding:20,overflowY:'auto',flex:1,paddingBottom:view==="feature"?80:20}},
-      view==="feature"?swipeHandlers:{}),
-      view==="home" && e('div',null,
-        e('div',{style:{marginBottom:24}},
-          e('div',{style:{fontSize:18,fontWeight:700,lineHeight:1.3,marginBottom:8}},'See what KYTHEREX does.'),
-          e('div',{style:{fontSize:12,color:T.text2,lineHeight:1.6}},'Four capabilities. All running on real public data from MT, ID, WA, and OR. Tap any to explore.')
-        ),
-        TABS.map(s=>e('div',{key:s.id,onClick:()=>openTab(s.id),style:{borderBottom:`1px solid ${T.rule}`,padding:'16px 0',cursor:'pointer'}},
-          e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center'}},
-            e('div',{style:{display:'flex',gap:12,alignItems:'flex-start'}},
-              e('div',{style:{color:s.color,marginTop:2}},e(s.iconFn,{size:16,color:s.color})),
-              e('div',null,
-                e('div',{style:{fontSize:14,fontWeight:700,marginBottom:4}},s.title),
-                e('div',{style:{fontSize:11,color:T.text2,lineHeight:1.5}},s.subtitle)
-              )
-            ),
-            e(IconChev,{size:16,color:T.muted})
+
+    // CONTENT
+    e('div',{ref:containerRef,style:{flex:1,overflowY:'auto',paddingBottom:view==="product"?70:20}},
+
+      view==="product" && e('div',null,
+        // MAP
+        e('div',{style:{borderBottom:'1px solid '+T.rule}},
+          e(ProductMap,{mill:mill,season:season,selectedCounty:selectedCounty,onSelectCounty:setSelectedCounty}),
+          e('div',{style:{padding:'4px 16px 6px',display:'flex',justifyContent:'space-between',alignItems:'center'}},
+            e('span',{style:{fontSize:8,color:T.muted}},mill.city+', '+mill.state+' | Profit rings + FIA inventory | Tap county for bid analysis'),
+            e('span',{style:{fontSize:8,color:T.accent,fontWeight:600}},'36 mills mapped')
           )
-        )),
-        e('div',{style:{marginTop:24,padding:'16px 0',borderTop:`1px solid ${T.rule}`}},
-          e('div',{style:{fontSize:10,color:T.muted,letterSpacing:'0.15em'}},'STRATHEX, INC.'),
-          e('div',{style:{fontSize:11,color:T.text2,marginTop:4}},'Built in Montana, for Montana.')
-        )
-      ),
-      view==="feature" && Comp && e('div',null,
-        e(Comp,{onTab:openTab}),
-        // Swipe hint
-        e('div',{style:{display:'flex',justifyContent:'center',gap:6,marginTop:16,paddingTop:8}},
-          TABS.map((t,i)=>e('div',{key:t.id,style:{width:t.id===activeTab?16:6,height:3,background:t.id===activeTab?T.accent:T.rule,transition:'width 0.15s'}}))
         ),
-        e('div',{style:{marginTop:12,padding:'12px 0',borderTop:`1px solid ${T.rule}`}},
-          e('div',{style:{fontSize:12,color:T.text2,lineHeight:1.6}},SCENARIO_CAPTIONS[activeTab])
+
+        // ECONOMICS AT A GLANCE
+        e('div',{style:{padding:'12px 16px',borderBottom:'1px solid '+T.rule}},
+          e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:0}},
+            [{l:'DELIVERED',v:'$'+mill.cost.delivered,sub:'/MBF',c:T.accent},
+             {l:'SPREAD',v:'$'+mill.cost.spread,sub:'/MBF',c:T.teal},
+             {l:'MC WASTE',v:'$'+mill.moisture.annual.toLocaleString(),sub:'/yr',c:T.red},
+            ].map(function(s,i){return e('div',{key:i,style:{paddingLeft:i>0?10:0,borderLeft:i>0?'1px solid '+T.rule:'none'}},
+              e('div',{style:{fontSize:8,color:T.muted,letterSpacing:'0.1em'}},s.l),
+              e('div',{style:{display:'flex',alignItems:'baseline',gap:1}},
+                e('span',{style:{fontSize:18,fontWeight:800,color:s.c}},s.v),
+                e('span',{style:{fontSize:8,color:T.muted}},s.sub)
+              )
+            );})
+          )
+        ),
+
+        // DRAWER TOGGLE
+        e('div',{onClick:function(){setDrawerOpen(!drawerOpen);},style:{padding:'8px 16px',borderBottom:'1px solid '+T.rule,display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer',background:drawerOpen?T.surfaceHi:'transparent'}},
+          e('span',{style:{fontSize:10,color:drawerOpen?T.accent:T.muted,fontWeight:600,letterSpacing:'0.1em'}},
+            selectedCounty ? 'BID ANALYSIS: '+selectedCounty.name.toUpperCase()+' COUNTY' : 'TAP A COUNTY ON THE MAP FOR BID ANALYSIS'
+          ),
+          e('div',{style:{transform:drawerOpen?'rotate(180deg)':'none',transition:'transform 0.15s'}},
+            e(IconChev,{size:14,color:drawerOpen?T.accent:T.muted})
+          )
+        ),
+
+        // DRAWER CONTENT
+        drawerOpen && e('div',{style:{padding:'12px 16px',borderBottom:'1px solid '+T.rule,background:T.surface}},
+          selectedCounty ?
+            e('div',null,
+              e(BidCard,{mill:mill,county:selectedCounty,season:season,diesel:diesel,stumpageAsk:stumpageAsk,mcActual:mcActual}),
+              e(WhatIfSliders,{diesel:diesel,setDiesel:setDiesel,stumpageAsk:stumpageAsk,setStumpageAsk:setStumpageAsk,mcActual:mcActual,setMcActual:setMcActual})
+            ) :
+            e('div',{style:{padding:'20px 0',textAlign:'center'}},
+              e(IconTarget,{size:24,color:T.muted}),
+              e('div',{style:{fontSize:11,color:T.text2,marginTop:8}},'Select a county on the map to see bid recommendation'),
+              e('div',{style:{fontSize:9,color:T.muted,marginTop:4}},'Green = profitable zone, yellow = marginal, red = uneconomic')
+            )
+        ),
+
+        // SUPPLY INTELLIGENCE
+        e('div',{style:{padding:'12px 16px'}},
+          e('div',{style:{fontSize:9,color:T.accent,letterSpacing:'0.15em',fontWeight:600,marginBottom:12}},'SUPPLY INTELLIGENCE'),
+          e(SupplyPanel,{mill:mill})
+        ),
+
+        // WHAT THIS REPLACES
+        e('div',{style:{padding:'12px 16px',borderTop:'1px solid '+T.rule}},
+          e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em',marginBottom:8}},'WHAT THIS REPLACES'),
+          [
+            {old:'Excel haul rate calculators',kyt:'First-principles cost model validated against 7 real MT routes'},
+            {old:'Manual stumpage tracking',kyt:'Live BBER + IDL + WA DNR + MT DOR data across 4 states'},
+            {old:'Gut-feel bidding',kyt:'Monte Carlo probability at 500K iterations'},
+            {old:'Flat pricing at the scale',kyt:'Moisture-adjusted pricing showing $/ton overpayment'},
+            {old:'Driving around to scout wood',kyt:'FIA inventory by county showing where the sawtimber stands'},
+          ].map(function(r,i){return e('div',{key:i,style:{display:'flex',gap:8,padding:'6px 0',borderBottom:i<4?'1px solid '+T.rule:'none'}},
+            e('div',{style:{flex:1}},
+              e('div',{style:{fontSize:9,color:T.red,textDecoration:'line-through'}},r.old),
+              e('div',{style:{fontSize:10,color:T.teal,marginTop:2}},r.kyt)
+            )
+          );})
+        ),
+
+        // KEY NUMBERS
+        e('div',{style:{padding:'12px 16px',borderTop:'1px solid '+T.rule}},
+          e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em',marginBottom:8}},'WHY THIS MATTERS'),
+          e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:0}},
+            [{v:'70-75%',l:'of mill costs are procurement'},{v:'43 hrs/wk',l:'wasted on manual admin'},
+             {v:'31%',l:'of loggers plan to exit in 5 yrs'},{v:'$8.5B',l:'federal forest restoration investment'},
+            ].map(function(s,i){return e('div',{key:i,style:{padding:'8px 0',paddingLeft:i%2===1?10:0,borderBottom:'1px solid '+T.rule,borderRight:i%2===0?'1px solid '+T.rule:'none'}},
+              e('div',{style:{fontSize:16,fontWeight:800,color:T.accent}},s.v),
+              e('div',{style:{fontSize:9,color:T.text2}},s.l)
+            );})
+          )
+        ),
+
+        // Footer
+        e('div',{style:{padding:'12px 16px',borderTop:'1px solid '+T.rule}},
+          e('div',{style:{fontSize:10,color:T.muted,letterSpacing:'0.15em'}},'STRATHEX, INC.'),
+          e('div',{style:{fontSize:10,color:T.text2,marginTop:4}},'Built in Montana, for Montana.'),
+          e('div',{style:{fontSize:9,color:T.muted,marginTop:4}},'Sources: USDA FIA, BBER Q1 2025, MT DOR FY2023, IDL Apr 2025, WA DNR FY2025')
         )
       ),
-      view==="cta" && e(CTAScreen,{onBack:goHome})
+
+      view==="cta" && e('div',{style:{padding:'0 20px'}},
+        e(CTAScreen,{onBack:function(){setView("product");scrollTop();}})
+      )
     ),
-    // Bottom bar
-    view==="feature" && e('div',{style:{position:'absolute',bottom:0,left:0,right:0,padding:'10px 20px 22px',background:`linear-gradient(transparent, ${T.bg} 30%)`,display:'flex',justifyContent:'space-between',zIndex:10}},
-      e('button',{onClick:goHome,style:{background:T.surface,border:`1px solid ${T.rule}`,padding:'10px 16px',color:T.text2,fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4}},
-        e(IconLeft,{size:14}),' Features'
+
+    // BOTTOM BAR
+    view==="product" && e('div',{style:{position:'absolute',bottom:0,left:0,right:0,padding:'10px 16px 22px',background:'linear-gradient(transparent, '+T.bg+' 30%)',display:'flex',justifyContent:'space-between',zIndex:10}},
+      e('div',{style:{display:'flex',gap:6}},
+        e('select',{value:speciesId,onChange:function(ev){setSpeciesId(ev.target.value);},style:{fontSize:10,padding:'8px 24px 8px 8px'}},
+          SPECIES.map(function(s){return e('option',{key:s.id,value:s.id},s.label+' $'+s.price);})
+        )
       ),
-      e('button',{onClick:goCTA,style:{background:T.accent,border:'none',padding:'10px 20px',color:'#0A0C0B',fontSize:13,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:6}},
+      e('button',{onClick:function(){setView("cta");scrollTop();},style:{background:T.accent,border:'none',padding:'10px 16px',color:'#0A0C0B',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:6}},
         'Your numbers ',e(IconRight,{size:14,color:'#0A0C0B'})
       )
     )
@@ -680,7 +691,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(e(App));
 
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.register('sw.js').catch(function() {});
 }
 </script>
 </body>
