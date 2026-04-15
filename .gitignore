@@ -1,0 +1,15 @@
+# Local Claude Code per-user settings (never commit)
+.claude/settings.local.json
+
+# Gstack runtime artifacts (QA reports, browse logs)
+.gstack/qa-reports/
+.gstack/browse-*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp

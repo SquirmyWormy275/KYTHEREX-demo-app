@@ -19,10 +19,26 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 <style>
+  /* Design tokens — mirror DESIGN.md. Any hex outside this block is a violation. */
+  :root {
+    --bg: #0A0C0B;
+    --surface: #111614;
+    --surface-hi: #1C2420;
+    --text: #F0EDE6;
+    --text-2: #9CA38C;
+    --muted: #6B7260;
+    --accent: #C8F560;
+    --accent-dim: rgba(200, 245, 96, 0.12);
+    --teal: #3DFFD0;
+    --red: #D94840;
+    --yellow: #EAB308;
+    --green: #22C55E;
+    --rule: #243128;
+  }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
-    background: #0A0C0B;
-    color: #F0EDE6;
+    background: var(--bg);
+    color: var(--text);
     font-family: 'JetBrains Mono', monospace;
     -webkit-font-smoothing: antialiased;
     overflow: hidden;
@@ -33,27 +49,27 @@
   ::-webkit-scrollbar { width: 0; }
   input[type=range] {
     -webkit-appearance: none; appearance: none;
-    width: 100%; height: 3px; background: #243128; outline: none;
+    width: 100%; height: 3px; background: var(--rule); outline: none;
     border-radius: 0;
   }
   input[type=range]::-webkit-slider-thumb {
     -webkit-appearance: none; appearance: none;
-    width: 14px; height: 14px; background: #C8F560; cursor: pointer;
+    width: 14px; height: 14px; background: var(--accent); cursor: pointer;
     border: none; border-radius: 0;
   }
   input[type=range]::-moz-range-thumb {
-    width: 14px; height: 14px; background: #C8F560; cursor: pointer;
+    width: 14px; height: 14px; background: var(--accent); cursor: pointer;
     border: none; border-radius: 0;
   }
   select {
     font-family: 'JetBrains Mono', monospace;
     -webkit-appearance: none; appearance: none;
-    background: #111614; color: #F0EDE6; border: 1px solid #243128;
+    background: var(--surface); color: var(--text); border: 1px solid var(--rule);
     padding: 6px 24px 6px 8px; font-size: 11px; font-weight: 600;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236B7260'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 8px center;
   }
-  select:focus { outline: 1px solid #C8F560; }
+  select:focus { outline: 1px solid var(--accent); }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 </style>
 </head>
@@ -68,13 +84,23 @@
 const e = React.createElement;
 const { useState, useRef, useCallback, useEffect, useMemo } = React;
 
-// --- THEME ---
+// --- THEME --- (must match :root CSS vars above and DESIGN.md)
 const T = {
   bg:"#0A0C0B", surface:"#111614", surfaceHi:"#1C2420",
   text:"#F0EDE6", text2:"#9CA38C", muted:"#6B7260",
   accent:"#C8F560", accentDim:"rgba(200,245,96,0.12)",
   teal:"#3DFFD0", red:"#D94840", yellow:"#EAB308",
   green:"#22C55E", rule:"#243128",
+};
+
+// --- FINANCIAL SOURCE OF TRUTH v2.1 ---
+// All user-facing pricing/ROI numbers. Change here, nowhere else.
+// See CLAUDE.md and docs/solutions/data-integrity/financial-source-of-truth-v2.1.md
+const FSOT = {
+  pricing: { display: "$0.25-$0.75", unit: "PER MBF" },
+  roi: { display: "10-25x", label: "TYPICAL ROI" },
+  improvement: { pct: "1-2.5%", savings: "$116K-$290K", cost: "~$12,500" },
+  tam: { display: "$2.5M-$5M", label: "NATIONAL TAM" },
 };
 
 // --- SVG ICONS ---
@@ -488,24 +514,24 @@ function CTAScreen({onBack}) {
     ),
     e('div',{style:{display:'flex',gap:24,marginBottom:24}},
       e('div',null,
-        e('div',{style:{fontSize:22,fontWeight:800,color:T.accent}},'$0.25-$0.75'),
-        e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},'PER MBF')
+        e('div',{style:{fontSize:22,fontWeight:800,color:T.accent}},FSOT.pricing.display),
+        e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},FSOT.pricing.unit)
       ),
       e('div',{style:{width:1,background:T.rule}}),
       e('div',null,
-        e('div',{style:{fontSize:22,fontWeight:800,color:T.teal}},'10-25x'),
-        e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},'TYPICAL ROI')
+        e('div',{style:{fontSize:22,fontWeight:800,color:T.teal}},FSOT.roi.display),
+        e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},FSOT.roi.label)
       )
     ),
     e('div',{style:{marginBottom:24,padding:'12px 0',borderTop:'1px solid '+T.rule,borderBottom:'1px solid '+T.rule}},
-      e('div',{style:{fontSize:10,color:T.muted,letterSpacing:'0.1em',marginBottom:8}},'WHAT 1-2.5% IMPROVEMENT MEANS'),
+      e('div',{style:{fontSize:10,color:T.muted,letterSpacing:'0.1em',marginBottom:8}},'WHAT '+FSOT.improvement.pct+' IMPROVEMENT MEANS'),
       e('div',{style:{display:'flex',gap:16}},
         e('div',null,
-          e('div',{style:{fontSize:18,fontWeight:800,color:T.accent}},'$116K-$290K'),
+          e('div',{style:{fontSize:18,fontWeight:800,color:T.accent}},FSOT.improvement.savings),
           e('div',{style:{fontSize:9,color:T.text2}},'Annual savings per mill')
         ),
         e('div',null,
-          e('div',{style:{fontSize:18,fontWeight:800,color:T.teal}},'~$12,500'),
+          e('div',{style:{fontSize:18,fontWeight:800,color:T.teal}},FSOT.improvement.cost),
           e('div',{style:{fontSize:9,color:T.text2}},'Avg annual cost')
         )
       )

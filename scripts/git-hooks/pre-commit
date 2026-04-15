@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Auto-installed via `./scripts/install-hooks.sh` (sets core.hooksPath).
+set -e
+
+# 1. Auto-bump sw.js cache when index.html is staged (PWA staleness defense).
+bash "$(git rev-parse --show-toplevel)/scripts/bump-sw-cache.sh"
+
+# 2. FSOT drift check — block commits that put financial numbers outside the
+#    FSOT block. Cheap, precise, high-signal.
+if git diff --cached --name-only | grep -qx "index.html"; then
+  root_dir=$(git rev-parse --show-toplevel)
+  if ! bash "$root_dir/scripts/dev.sh" check-fsot; then
+    echo "(bypass with --no-verify if you know what you're doing)"
+    exit 1
+  fi
+fi
