@@ -28,3 +28,40 @@ Always read DESIGN.md before making any visual or UI decisions.
 All font choices, colors, spacing, and aesthetic direction are defined there.
 Do not deviate without explicit user approval.
 In QA mode, flag any code that doesn't match DESIGN.md.
+
+## Skill routing
+
+### Compound Engineering (CE) Commands
+CE commands chain multiple skills into gated pipelines. Each phase must pass before
+the next begins. Failures are fixed in-place with atomic commits.
+
+- Full verification (review + QA, no test runner in this project) → invoke ce-verify
+- Verified ship (review + QA + ship) → invoke ce-ship
+- Full deploy (review + QA + ship + land) → invoke ce-deploy
+- Hotfix fast lane (ship only) → invoke ce-hotfix
+- Plan and build (autoplan + TDD implementation) → invoke ce-plan
+- Configure CE stack → invoke ce-setup
+
+### Project-specific notes
+- **No test runner.** This is a single-file React-from-CDN demo. CE pipelines skip the
+  pytest/npm-test phase. QA is browser-based via `/qa` against a local static server.
+- **Knowledge seed.** Established patterns and solved problems live in `docs/solutions/`.
+  The learnings-researcher reads these during `/ce-plan` and `/ce-review`.
+
+## Deploy Configuration (configured by /setup-deploy)
+- Platform: GitHub Pages
+- Production URL: https://squirmywormy275.github.io/KYTHEREX-demo-app/
+- Deploy workflow: auto-deploy on push to main (GitHub Pages native, no Actions workflow)
+- Deploy status command: none (GitHub Pages has no CLI status; poll the URL)
+- Merge method: squash
+- Project type: mobile-first static SPA (single index.html, React from CDN, PWA)
+- Post-deploy health check: `curl -sf https://squirmywormy275.github.io/KYTHEREX-demo-app/ -o /dev/null -w "%{http_code}"` should return 200
+
+### Custom deploy hooks
+- Pre-merge: none (no build step)
+- Deploy trigger: automatic on push to main (GitHub Pages picks up within ~30-60s)
+- Deploy status: poll production URL until new `index.html` etag/content is served
+- Health check: production URL returns 200 AND contains expected version/build marker
+- **Service worker caveat:** If `index.html` was changed, bump the cache version in `sw.js`
+  or installed PWAs will continue serving the stale version. See
+  `docs/solutions/configuration-issues/pwa-service-worker-cache-staleness.md`.

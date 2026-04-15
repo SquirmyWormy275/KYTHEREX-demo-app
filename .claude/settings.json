@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'input=$(cat); cmd=$(echo \"$input\" | grep -oE \"git commit[^\\\"]*\" | head -1); if echo \"$cmd\" | grep -qiE \"(^|[^a-z])(fix|hotfix|bug|revert|workaround|patch)([^a-z]|:)\"; then echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"PostToolUse\\\",\\\"additionalContext\\\":\\\"Learning-capture reminder: a fix/revert commit was just made. If the root cause was non-obvious, add a bug-track entry to docs/solutions/ so future CE runs inherit the lesson. Skip if the fix was trivial (typo, formatting, obvious oversight).\\\"}}\"; fi' 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
