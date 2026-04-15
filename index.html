@@ -531,11 +531,11 @@ function CTAScreen({onBack}) {
 // --- MAIN APP ---
 // --- COMPETITION OVERLAY DATA (3 demo mills, 18 pre-computed sales) ---
 const COMPETITION_MILLS = [
-  { id:"MT-003", name:"Weyerhaeuser", city:"Kalispell", lat:48.2350, lon:-114.3055, color:"#2563eb",
+  { id:"MT-003", name:"Weyerhaeuser", city:"Kalispell", lat:48.2350, lon:-114.3055, color:"#60A5FA",
     rings:[{r:25,cls:"profitable"},{r:50,cls:"profitable"},{r:75,cls:"marginal"},{r:100,cls:"marginal"},{r:125,cls:"unprofitable"}] },
-  { id:"MT-007", name:"Thompson River", city:"Thompson Falls", lat:47.5941, lon:-115.3383, color:"#16a34a",
+  { id:"MT-007", name:"Thompson River", city:"Thompson Falls", lat:47.5941, lon:-115.3383, color:"#34D399",
     rings:[{r:25,cls:"profitable"},{r:50,cls:"profitable"},{r:75,cls:"marginal"},{r:100,cls:"marginal"},{r:125,cls:"unprofitable"}] },
-  { id:"MT-005", name:"Sun Mountain", city:"Deer Lodge", lat:46.3974, lon:-112.7330, color:"#ea580c",
+  { id:"MT-005", name:"Sun Mountain", city:"Deer Lodge", lat:46.3974, lon:-112.7330, color:"#FBBF24",
     rings:[{r:25,cls:"profitable"},{r:50,cls:"profitable"},{r:75,cls:"marginal"},{r:100,cls:"marginal"},{r:125,cls:"unprofitable"}] },
 ];
 const COMPETITION_SALES = [
@@ -571,7 +571,7 @@ function CompetitionView() {
     if(!containerRef.current || stateRef.current) return;
     if(typeof L === "undefined") return;
     var map = L.map(containerRef.current, {zoomControl:true, attributionControl:true});
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       attribution:'&copy; OpenStreetMap &copy; CARTO', subdomains:'abcd', maxZoom:19
     }).addTo(map);
     map.fitBounds([[45.6,-116.2],[49.0,-112.0]]);
@@ -603,12 +603,12 @@ function CompetitionView() {
     if(showSales){
       COMPETITION_SALES.forEach(function(sale){
         if(contestedOnly && sale.status!=="contested") return;
-        var fill="#9ca3af", r=5;
-        if(sale.status==="contested"){ fill="#dc2626"; r=9; }
+        var fill="#9CA3AF", r=5;
+        if(sale.status==="contested"){ fill="#F87171"; r=9; }
         else if(sale.status==="exclusive"){
           var owner = COMPETITION_MILLS.find(function(m){return m.id===sale.by[0];});
           fill = owner?owner.color:"#10b981"; r=7;
-        } else if(sale.status==="marginal"){ fill="#eab308"; r=6; }
+        } else if(sale.status==="marginal"){ fill="#FBBF24"; r=6; }
         var popup = '<div style="font-family:system-ui;font-size:12px"><b>'+sale.name+'</b><br/>'
           + sale.volume_mbf.toLocaleString()+' MBF '+sale.species+' &middot; '+sale.agency+'<br/>'
           + 'Status: <b style="color:'+fill+'">'+sale.status.toUpperCase()+'</b>';
