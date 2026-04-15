@@ -17,6 +17,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
@@ -61,6 +62,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <script>
 const e = React.createElement;
@@ -527,6 +529,144 @@ function CTAScreen({onBack}) {
 }
 
 // --- MAIN APP ---
+// --- COMPETITION OVERLAY DATA (3 demo mills, 18 pre-computed sales) ---
+const COMPETITION_MILLS = [
+  { id:"MT-003", name:"Weyerhaeuser", city:"Kalispell", lat:48.2350, lon:-114.3055, color:"#2563eb",
+    rings:[{r:25,cls:"profitable"},{r:50,cls:"profitable"},{r:75,cls:"marginal"},{r:100,cls:"marginal"},{r:125,cls:"unprofitable"}] },
+  { id:"MT-007", name:"Thompson River", city:"Thompson Falls", lat:47.5941, lon:-115.3383, color:"#16a34a",
+    rings:[{r:25,cls:"profitable"},{r:50,cls:"profitable"},{r:75,cls:"marginal"},{r:100,cls:"marginal"},{r:125,cls:"unprofitable"}] },
+  { id:"MT-005", name:"Sun Mountain", city:"Deer Lodge", lat:46.3974, lon:-112.7330, color:"#ea580c",
+    rings:[{r:25,cls:"profitable"},{r:50,cls:"profitable"},{r:75,cls:"marginal"},{r:100,cls:"marginal"},{r:125,cls:"unprofitable"}] },
+];
+const COMPETITION_SALES = [
+  {id:"DEMO-001", name:"Flathead NF - Swan Valley",      lat:47.95, lon:-113.85, volume_mbf:2500, species:"Douglas-fir", agency:"USFS",   in_rings:{"MT-003":"profitable"},                                                   status:"exclusive",   by:["MT-003"]},
+  {id:"DEMO-002", name:"Flathead NF - Whitefish Range",  lat:48.60, lon:-114.50, volume_mbf:1800, species:"Douglas-fir", agency:"USFS",   in_rings:{"MT-003":"profitable"},                                                   status:"exclusive",   by:["MT-003"]},
+  {id:"DEMO-003", name:"Glacier - North Fork",           lat:48.50, lon:-114.05, volume_mbf:3200, species:"Douglas-fir", agency:"USFS",   in_rings:{"MT-003":"profitable"},                                                   status:"exclusive",   by:["MT-003"]},
+  {id:"DEMO-004", name:"Kootenai NF - Libby Unit",       lat:48.39, lon:-115.55, volume_mbf:2100, species:"Douglas-fir", agency:"USFS",   in_rings:{"MT-007":"profitable"},                                                   status:"exclusive",   by:["MT-007"]},
+  {id:"DEMO-005", name:"Kootenai NF - Yaak",             lat:48.75, lon:-115.70, volume_mbf:1500, species:"larch",       agency:"USFS",   in_rings:{"MT-007":"profitable"},                                                   status:"exclusive",   by:["MT-007"]},
+  {id:"DEMO-006", name:"Cabinet Mtns Wilderness Edge",   lat:47.95, lon:-115.70, volume_mbf: 900, species:"Douglas-fir", agency:"USFS",   in_rings:{"MT-007":"profitable"},                                                   status:"exclusive",   by:["MT-007"]},
+  {id:"DEMO-007", name:"Beaverhead-Deerlodge - Pintler", lat:46.00, lon:-113.30, volume_mbf:2800, species:"Douglas-fir", agency:"USFS",   in_rings:{"MT-005":"profitable"},                                                   status:"exclusive",   by:["MT-005"]},
+  {id:"DEMO-008", name:"Big Hole Valley Unit",           lat:45.75, lon:-113.50, volume_mbf:1200, species:"lodgepole",   agency:"USFS",   in_rings:{"MT-005":"profitable"},                                                   status:"exclusive",   by:["MT-005"]},
+  {id:"DEMO-009", name:"MT DNRC - Philipsburg",          lat:46.33, lon:-113.30, volume_mbf:1600, species:"Douglas-fir", agency:"MT DNRC",in_rings:{"MT-005":"profitable"},                                                   status:"exclusive",   by:["MT-005"]},
+  {id:"DEMO-010", name:"Lolo NF - Plains",               lat:47.47, lon:-114.88, volume_mbf:3500, species:"Douglas-fir", agency:"USFS",   in_rings:{"MT-003":"marginal","MT-007":"profitable"},                               status:"contested",   by:["MT-007"]},
+  {id:"DEMO-011", name:"Lolo NF - Noxon",                lat:47.97, lon:-115.78, volume_mbf:2200, species:"Douglas-fir", agency:"USFS",   in_rings:{"MT-003":"marginal","MT-007":"profitable"},                               status:"contested",   by:["MT-007"]},
+  {id:"DEMO-012", name:"Kootenai NF - Trout Creek",      lat:47.85, lon:-115.60, volume_mbf:1900, species:"larch",       agency:"USFS",   in_rings:{"MT-003":"marginal","MT-007":"profitable"},                               status:"contested",   by:["MT-007"]},
+  {id:"DEMO-013", name:"Lolo NF - Petty Creek",          lat:46.95, lon:-114.50, volume_mbf:1400, species:"Douglas-fir", agency:"USFS",   in_rings:{"MT-007":"marginal","MT-005":"marginal"},                                 status:"marginal",    by:[]},
+  {id:"DEMO-014", name:"Lolo NF - Blackfoot Valley",     lat:46.95, lon:-113.35, volume_mbf:2600, species:"Douglas-fir", agency:"USFS",   in_rings:{"MT-007":"marginal","MT-005":"profitable"},                               status:"contested",   by:["MT-005"]},
+  {id:"DEMO-015", name:"MT DNRC - Drummond",             lat:46.67, lon:-113.15, volume_mbf:1100, species:"ponderosa",   agency:"MT DNRC",in_rings:{"MT-007":"marginal","MT-005":"profitable"},                               status:"contested",   by:["MT-005"]},
+  {id:"DEMO-016", name:"Lolo NF - Missoula Front",       lat:46.87, lon:-113.99, volume_mbf:3000, species:"Douglas-fir", agency:"USFS",   in_rings:{"MT-003":"marginal","MT-007":"marginal","MT-005":"marginal"},             status:"marginal",    by:[]},
+  {id:"DEMO-017", name:"Lolo NF - Seeley Lake",          lat:47.18, lon:-113.48, volume_mbf:2400, species:"Douglas-fir", agency:"USFS",   in_rings:{"MT-003":"marginal","MT-007":"marginal","MT-005":"marginal"},             status:"marginal",    by:[]},
+  {id:"DEMO-018", name:"Helena-Lewis & Clark - Lincoln", lat:47.05, lon:-112.35, volume_mbf:1800, species:"Douglas-fir", agency:"USFS",   in_rings:{},                                                                        status:"unreachable", by:[]},
+];
+
+function CompetitionView() {
+  var containerRef = useRef(null);
+  var stateRef = useRef(null);
+  var _v = useState({"MT-003":true,"MT-007":true,"MT-005":true});
+  var visible=_v[0]; var setVisible=_v[1];
+  var _s = useState(true);  var showSales=_s[0];      var setShowSales=_s[1];
+  var _c = useState(false); var contestedOnly=_c[0];  var setContestedOnly=_c[1];
+
+  useEffect(function(){
+    if(!containerRef.current || stateRef.current) return;
+    if(typeof L === "undefined") return;
+    var map = L.map(containerRef.current, {zoomControl:true, attributionControl:true});
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution:'&copy; OpenStreetMap &copy; CARTO', subdomains:'abcd', maxZoom:19
+    }).addTo(map);
+    map.fitBounds([[45.6,-116.2],[49.0,-112.0]]);
+    stateRef.current = {map:map, layers:[]};
+    setTimeout(function(){ if(stateRef.current) stateRef.current.map.invalidateSize(); }, 120);
+    return function(){ if(stateRef.current){ stateRef.current.map.remove(); stateRef.current=null; } };
+  }, []);
+
+  useEffect(function(){
+    if(!stateRef.current) return;
+    var s = stateRef.current;
+    s.layers.forEach(function(l){ s.map.removeLayer(l); });
+    s.layers = [];
+    COMPETITION_MILLS.forEach(function(m){
+      if(!visible[m.id]) return;
+      m.rings.forEach(function(ring){
+        var fo = ring.cls==="profitable"?0.20:(ring.cls==="marginal"?0.10:0.04);
+        var c = L.circle([m.lat,m.lon], {
+          radius: ring.r*1609.34, color:m.color, weight:1.5, opacity:0.55,
+          fillColor:m.color, fillOpacity:fo
+        }).addTo(s.map);
+        s.layers.push(c);
+      });
+      var mm = L.circleMarker([m.lat,m.lon], {
+        radius:9, color:"#fff", weight:3, fillColor:m.color, fillOpacity:1
+      }).bindPopup('<div style="font-family:system-ui"><b>'+m.name+'</b><br/>'+m.city+', MT</div>').addTo(s.map);
+      s.layers.push(mm);
+    });
+    if(showSales){
+      COMPETITION_SALES.forEach(function(sale){
+        if(contestedOnly && sale.status!=="contested") return;
+        var fill="#9ca3af", r=5;
+        if(sale.status==="contested"){ fill="#dc2626"; r=9; }
+        else if(sale.status==="exclusive"){
+          var owner = COMPETITION_MILLS.find(function(m){return m.id===sale.by[0];});
+          fill = owner?owner.color:"#10b981"; r=7;
+        } else if(sale.status==="marginal"){ fill="#eab308"; r=6; }
+        var popup = '<div style="font-family:system-ui;font-size:12px"><b>'+sale.name+'</b><br/>'
+          + sale.volume_mbf.toLocaleString()+' MBF '+sale.species+' &middot; '+sale.agency+'<br/>'
+          + 'Status: <b style="color:'+fill+'">'+sale.status.toUpperCase()+'</b>';
+        COMPETITION_MILLS.forEach(function(mm){
+          var cls = sale.in_rings[mm.id];
+          popup += '<br/>' + mm.name + ': ' + (cls?cls:'not in basket');
+        });
+        popup += '</div>';
+        var sm = L.circleMarker([sale.lat,sale.lon], {
+          radius:r, color:"#fff", weight:2, fillColor:fill, fillOpacity:0.9
+        }).bindPopup(popup).addTo(s.map);
+        s.layers.push(sm);
+      });
+    }
+  }, [visible, showSales, contestedOnly]);
+
+  function toggle(id){ var n=Object.assign({},visible); n[id]=!n[id]; setVisible(n); }
+
+  var contestedCount = COMPETITION_SALES.filter(function(s){return s.status==="contested";}).length;
+
+  return e('div',{style:{display:'flex',flexDirection:'column',height:'100%'}},
+    e('div',{style:{padding:'10px 16px 8px',borderBottom:'1px solid '+T.rule,flexShrink:0}},
+      e('div',{style:{fontSize:9,color:T.accent,letterSpacing:'0.15em',fontWeight:600,marginBottom:8}},'COMPETITION OVERLAP - WESTERN MT'),
+      e('div',{style:{display:'flex',gap:4,marginBottom:6}},
+        COMPETITION_MILLS.map(function(m){
+          var on = visible[m.id];
+          return e('button',{key:m.id, onClick:function(){toggle(m.id);}, style:{
+            background: on?m.color:T.surface, color: on?'#fff':T.muted,
+            border:'1px solid '+(on?m.color:T.rule),
+            padding:'6px 4px', fontSize:8, fontWeight:700, letterSpacing:'0.08em',
+            cursor:'pointer', flex:1, minWidth:0, textTransform:'uppercase',
+            whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'
+          }}, m.name);
+        })
+      ),
+      e('div',{style:{display:'flex',gap:4}},
+        e('button',{onClick:function(){setShowSales(!showSales);}, style:{
+          background: showSales?T.accent:T.surface, color: showSales?'#0A0C0B':T.muted,
+          border:'1px solid '+(showSales?T.accent:T.rule),
+          padding:'6px 8px', fontSize:8, fontWeight:700, letterSpacing:'0.1em',
+          cursor:'pointer', flex:1
+        }}, showSales?'SALES: ON':'SALES: OFF'),
+        e('button',{onClick:function(){setContestedOnly(!contestedOnly);}, style:{
+          background: contestedOnly?T.red:T.surface, color: contestedOnly?'#fff':T.muted,
+          border:'1px solid '+(contestedOnly?T.red:T.rule),
+          padding:'6px 8px', fontSize:8, fontWeight:700, letterSpacing:'0.1em',
+          cursor:'pointer', flex:1
+        }}, contestedOnly?'CONTESTED ONLY':'ALL SALES')
+      )
+    ),
+    e('div',{ref:containerRef, style:{flex:1, minHeight:320, background:'#f5f5f0'}}),
+    e('div',{style:{padding:'8px 16px',borderTop:'1px solid '+T.rule,fontSize:9,color:T.muted,display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}},
+      e('span',null, '3 mills - 18 sales - ' + contestedCount + ' contested'),
+      e('span',{style:{color:T.red,fontWeight:600}}, 'TAP A SALE')
+    )
+  );
+}
+
 function App() {
   var _s = useState(0); var millIdx=_s[0]; var setMillIdx=_s[1];
   var _s2 = useState(0); var seasonIdx=_s2[0]; var setSeasonIdx=_s2[1];
@@ -559,6 +699,18 @@ function App() {
         e('div',{style:{display:'flex',alignItems:'center',gap:4,fontSize:9,color:T.muted}},
           e(IconRefresh,{size:9}),' BBER Q1 2025'
         )
+      ),
+      // View switcher (Map | Competition)
+      e('div',{style:{display:'flex',gap:4,marginBottom:view==="product"?6:0}},
+        [{id:"product",label:"MAP"},{id:"competition",label:"COMPETITION"}].map(function(t){
+          var on = view===t.id;
+          return e('button',{key:t.id,onClick:function(){setView(t.id);scrollTop();},style:{
+            background: on?T.accent:T.surface, color: on?'#0A0C0B':T.muted,
+            border:'1px solid '+(on?T.accent:T.rule),
+            padding:'5px 10px', fontSize:9, fontWeight:700, letterSpacing:'0.15em',
+            cursor:'pointer', flex:1
+          }}, t.label);
+        })
       ),
       view==="product" && e('div',{style:{display:'flex',gap:6}},
         e('select',{value:millIdx,onChange:function(ev){setMillIdx(parseInt(ev.target.value));setSelectedCounty(null);setDrawerOpen(false);},style:{flex:2,fontSize:10}},
@@ -669,6 +821,10 @@ function App() {
 
       view==="cta" && e('div',{style:{padding:'0 20px'}},
         e(CTAScreen,{onBack:function(){setView("product");scrollTop();}})
+      ),
+
+      view==="competition" && e('div',{style:{height:'100%'}},
+        e(CompetitionView)
       )
     ),
 

@@ -21,6 +21,7 @@ A single-screen, map-centric mobile app that shows what KYTHEREX does. One unifi
 - **What-if sliders** -- Diesel price, stumpage ask, actual MC -- all update the bid card in real time
 - **Supply intelligence panel** -- Species mix, ownership breakdown, growth-to-drain ratio, competing mills
 - **CTA screen** -- Correct financials from Financial Source of Truth v2.1 ($0.25-$0.75/MBF, 10-25x ROI, $116K-$290K savings)
+- **Competition view** -- Toggle to the multi-mill overlap map (3 demo mills, 18 pre-baked timber sales). Leaflet-powered. Tap a contested sale to see how all three mills' delivered-cost rings classify it. Mill toggles + contested-only filter.
 
 All data is pre-baked from public sources (BBER Q1 2025, MT DOR FY2023, IDL rolling averages, USDA FIA). No backend. No API calls. No proprietary data.
 
