@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kytherex-demo-v3';
+const CACHE_NAME = 'kytherex-demo-v7';
 const ASSETS = [
   '/KYTHEREX-demo-app/',
   '/KYTHEREX-demo-app/index.html',

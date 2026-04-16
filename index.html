@@ -73,6 +73,13 @@
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
   @keyframes tapFlash { 0%{r:8;opacity:0.8} 100%{r:20;opacity:0} }
   @keyframes spin { to{transform:rotate(360deg)} }
+  @media (orientation: landscape) and (min-width: 640px) {
+    #root { max-width: 100% !important; }
+    .kx-app { max-width: 100% !important; }
+    .kx-landscape-split { display: flex !important; flex-direction: row !important; }
+    .kx-landscape-split > .kx-map-col { flex: 0 0 55%; max-height: 100%; overflow-y: auto; }
+    .kx-landscape-split > .kx-detail-col { flex: 0 0 45%; max-height: 100%; overflow-y: auto; border-left: 1px solid var(--rule); }
+  }
 </style>
 </head>
 <body>
@@ -102,7 +109,7 @@ const FSOT = {
   pricing: { display: "$0.25-$0.75", unit: "PER MBF" },
   roi: { display: "10-25x", label: "TYPICAL ROI" },
   improvement: { pct: "1-2.5%", savings: "$116K-$290K", cost: "~$12,500" },
-  tam: { display: "$2.5M-$5M", label: "NATIONAL TAM" },
+  tam: { display: "$15M", label: "NATIONAL TAM" },
 };
 
 // --- SVG ICONS ---
@@ -293,6 +300,7 @@ function ProductMap({mill, season, selectedCounty, onSelectCounty, onSelectMill,
   var stColors = {MT:T.text,ID:"#6BA3D6",WA:"#E89040",OR:"#D05050"};
 
   return e('svg',{viewBox:'0 0 '+w+' '+h,width:'100%',style:{display:'block',background:T.surface}},
+    season.id!=="normal" && e('rect',{x:0,y:0,width:w,height:h,fill:season.id==="mud"?'rgba(139,90,43,0.08)':season.id==="winter"?'rgba(100,149,237,0.06)':'rgba(200,220,255,0.05)'}),
     contours.map(function(c,i){return e('path',{key:'c'+i,d:c.d,fill:'none',stroke:c.c,strokeWidth:c.sw||0.5,opacity:0.6});}),
     ringRadii.map(function(r,i){return e('ellipse',{key:'ring'+i,cx:cx,cy:cy,rx:r,ry:r*0.55,
       fill:ringColors[i],fillOpacity:0.06,stroke:ringColors[i],strokeWidth:0.8,
@@ -306,6 +314,7 @@ function ProductMap({mill, season, selectedCounty, onSelectCounty, onSelectMill,
       var bColor = dist<38*rs ? T.green : dist<72*rs ? T.yellow : T.red;
       var isTapped = tapFips===c.fips;
       return e('g',{key:'fia'+i,onClick:function(ev){ev.stopPropagation();onSelectCounty(isSel?null:c);},style:{cursor:'pointer'}},
+        e('title',null,c.name+' County, '+c.st+' | '+c.vol.toLocaleString()+' MMBF'),
         isTapped && e('circle',{cx:c.cx,cy:c.cy,r:8,fill:T.accent,opacity:0,style:{animation:'tapFlash 0.4s ease-out forwards'}}),
         e('circle',{cx:c.cx,cy:c.cy,r:r,fill:bColor,fillOpacity:isSel?0.4:0.15,stroke:isSel?T.accent:bColor,strokeWidth:isSel?1.5:0.5}),
         r>6 && e('text',{x:c.cx,y:c.cy+2,textAnchor:'middle',fill:T.text2,fontSize:4.5,fontFamily:'JetBrains Mono'},c.name.substring(0,6))
@@ -323,6 +332,17 @@ function ProductMap({mill, season, selectedCounty, onSelectCounty, onSelectMill,
         !isSelected && hasData && e('text',{x:m.x,y:m.y-5,textAnchor:'middle',fill:col,fontSize:4,fontFamily:'JetBrains Mono',opacity:0.7},m.name)
       );
     }),
+    selectedCounty && (function(){
+      var dx=selectedCounty.cx-cx, dy=selectedCounty.cy-cy;
+      var dist=Math.sqrt(dx*dx+dy*dy);
+      var lineColor=dist<38*rs?T.green:dist<72*rs?T.yellow:T.red;
+      var mx=(cx+selectedCounty.cx)/2, my=(cy+selectedCounty.cy)/2;
+      var estMi=Math.round(dist*1.8);
+      return e('g',{key:'haul-route'},
+        e('line',{x1:cx,y1:cy,x2:selectedCounty.cx,y2:selectedCounty.cy,stroke:lineColor,strokeWidth:1.5,strokeDasharray:'4,3',opacity:0.8}),
+        e('text',{x:mx,y:my-3,textAnchor:'middle',fill:lineColor,fontSize:5,fontWeight:700,fontFamily:'JetBrains Mono'},'~'+estMi+' mi')
+      );
+    })(),
     e('text',{x:8,y:12,fill:T.muted+'80',fontSize:6,fontFamily:'JetBrains Mono'},'IDAHO'),
     e('text',{x:250,y:12,fill:T.muted+'80',fontSize:6,fontFamily:'JetBrains Mono'},'MONTANA'),
     e('text',{x:8,y:205,fill:T.muted+'60',fontSize:5,fontFamily:'JetBrains Mono'},'WASHINGTON'),
@@ -405,7 +425,7 @@ function SupplyPanel({mill, onSelectMill}) {
 }
 
 // --- BID RECOMMENDATION CARD ---
-function BidCard({mill, county, season, diesel, stumpageAsk, mcActual}) {
+function BidCard({mill, county, season, diesel, stumpageAsk, mcActual, species}) {
   var haulMult = season.mult;
   var adjHaul = Math.round(mill.cost.haul * haulMult);
   var adjDelivered = stumpageAsk + mill.cost.logging + adjHaul;
@@ -420,15 +440,31 @@ function BidCard({mill, county, season, diesel, stumpageAsk, mcActual}) {
   var pTarget = Math.max(40, Math.min(95, mill.mc.pTarget - (season.mult-1)*80 + (stumpageAsk<212?8:-5)));
   var rec = pTarget >= 65 ? "BID" : pTarget >= 50 ? "CAUTIOUS" : "PASS";
   var recColor = rec==="BID"?T.teal:rec==="CAUTIOUS"?T.yellow:T.red;
+  var speciesSpread = species ? species.price - finalDelivered : 0;
 
   return e('div',null,
     e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}},
       e('div',{style:{fontSize:9,color:T.accent,letterSpacing:'0.15em',fontWeight:700}},'BID RECOMMENDATION'),
       e('div',{style:{padding:'3px 8px',background:recColor+'20',border:'1px solid '+recColor,fontSize:11,fontWeight:800,color:recColor}},rec)
     ),
-    county && e('div',{style:{fontSize:10,color:T.text2,marginBottom:12}},
-      county.name+' County, '+county.st+' | '+season.label
-    ),
+    county && (function(){
+      var dx = county.cx - mill.mapCenter.x, dy = county.cy - mill.mapCenter.y;
+      var dist = Math.sqrt(dx*dx+dy*dy);
+      var rs = season.ringScale;
+      var zone = dist<38*rs ? 'PROFITABLE' : dist<72*rs ? 'MARGINAL' : 'UNECONOMIC';
+      var zoneColor = zone==='PROFITABLE'?T.green:zone==='MARGINAL'?T.yellow:T.red;
+      var estMiles = Math.round(dist * 1.8);
+      return e('div',{style:{marginBottom:12}},
+        e('div',{style:{fontSize:10,color:T.text2,marginBottom:4}},
+          county.name+' County, '+county.st+' | '+season.label + (species ? ' | '+species.label : '')
+        ),
+        e('div',{style:{display:'flex',gap:8,alignItems:'center'}},
+          e('span',{style:{fontSize:9,padding:'2px 6px',background:zoneColor+'20',border:'1px solid '+zoneColor,color:zoneColor,fontWeight:700,letterSpacing:'0.1em'}},zone),
+          e('span',{style:{fontSize:9,color:T.text2}},'~'+estMiles+' mi haul'),
+          e('span',{style:{fontSize:9,color:T.muted}},county.vol.toLocaleString()+' MMBF inventory')
+        )
+      );
+    })(),
     e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:0,marginBottom:12}},
       e('div',{style:{padding:'8px 0',borderRight:'1px solid '+T.rule}},
         e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em'}},'DELIVERED COST'),
@@ -459,6 +495,10 @@ function BidCard({mill, county, season, diesel, stumpageAsk, mcActual}) {
         )
       );})
     ),
+    species && e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',marginBottom:12,borderBottom:'1px solid '+T.rule}},
+      e('span',{style:{fontSize:10,fontWeight:600,color:T.text2}},species.label+' SPREAD'),
+      e('span',{style:{fontSize:14,fontWeight:800,color:speciesSpread>=0?T.teal:T.red}},(speciesSpread>=0?'+':'')+speciesSpread+' $/MBF')
+    ),
     e('div',{style:{marginBottom:12,padding:'8px 0',borderBottom:'1px solid '+T.rule}},
       e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em',marginBottom:6}},'MOISTURE GAP'),
       e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:0}},
@@ -484,14 +524,36 @@ function BidCard({mill, county, season, diesel, stumpageAsk, mcActual}) {
           );
         })
       ),
-      e('div',{style:{display:'flex',alignItems:'flex-end',gap:1,height:24,marginTop:8}},
-        [3,7,14,22,28,32,28,22,14,8,5,3,2,1].map(function(h,i){
-          return e('div',{key:i,style:{flex:1,height:h+'%',minHeight:1,background:i<4?T.green:i<9?T.accent:i<11?T.yellow:T.red,opacity:0.6}});
-        })
-      ),
-      e('div',{style:{display:'flex',justifyContent:'space-between',fontSize:8,color:T.muted,marginTop:2}},
-        e('span',null,'$28/ton'),e('span',null,'$46/ton')
-      )
+      (function(){
+        var baseHist = [3,7,14,22,28,32,28,22,14,8,5,3,2,1];
+        var defaultDel = mill.cost.delivered;
+        var shift = (finalDelivered - defaultDel) / 20;
+        var bins = baseHist.map(function(h,i){
+          var si = i - shift;
+          var li = Math.floor(si), hi = Math.ceil(si);
+          var frac = si - li;
+          var v = 0;
+          if(li>=0 && li<baseHist.length) v += baseHist[li]*(1-frac);
+          if(hi>=0 && hi<baseHist.length) v += baseHist[hi]*frac;
+          return Math.max(1, Math.round(v));
+        });
+        var maxB = Math.max.apply(null, bins);
+        var deliveredPct = (finalDelivered - mill.cost.delivered) / (mill.cost.delivered * 0.3);
+        var currentBin = Math.round((baseHist.length-1) / 2 + deliveredPct * (baseHist.length/2));
+        currentBin = Math.max(0, Math.min(baseHist.length-1, currentBin));
+        return e('div',null,
+          e('div',{style:{display:'flex',alignItems:'flex-end',gap:1,height:24,marginTop:8}},
+            bins.map(function(h,i){
+              var isCurrent = i===currentBin;
+              return e('div',{key:i,style:{flex:1,height:Math.round(h/maxB*100)+'%',minHeight:1,background:i<4?T.green:i<9?T.accent:i<11?T.yellow:T.red,opacity:isCurrent?1:0.5,outline:isCurrent?'1px solid '+T.text:'none'}});
+            })
+          ),
+          e('div',{style:{display:'flex',justifyContent:'space-between',fontSize:8,color:T.muted,marginTop:2}},
+            e('span',null,'$'+mill.mc.p10+'/ton'),e('span',null,'$'+mill.mc.p90+'/ton')
+          ),
+          e('div',{style:{fontSize:7,color:T.muted,marginTop:3,letterSpacing:'0.05em',textAlign:'right'}},'ILLUSTRATIVE MODEL')
+        );
+      })()
     )
   );
 }
@@ -499,10 +561,15 @@ function BidCard({mill, county, season, diesel, stumpageAsk, mcActual}) {
 // --- WHAT-IF SLIDERS ---
 function WhatIfSliders({diesel,setDiesel,stumpageAsk,setStumpageAsk,mcActual,setMcActual,defaults}) {
   function Slider(props) {
+    var delta = props.dflt !== undefined ? Math.round((props.value - props.dflt)*100)/100 : 0;
+    var hasDelta = Math.abs(delta) > 0.001;
     return e('div',{style:{marginBottom:10}},
       e('div',{style:{display:'flex',justifyContent:'space-between',fontSize:9,marginBottom:3}},
         e('span',{style:{color:T.muted,letterSpacing:'0.1em'}},props.label),
-        e('span',{style:{color:T.accent,fontWeight:700,fontSize:11}},props.fmt(props.value))
+        e('span',{style:{display:'flex',alignItems:'center',gap:4}},
+          e('span',{style:{color:T.accent,fontWeight:700,fontSize:11}},props.fmt(props.value)),
+          hasDelta && e('span',{style:{fontSize:8,fontWeight:700,color:delta>0?T.red:T.teal,padding:'1px 4px',background:(delta>0?T.red:T.teal)+'15'}},(delta>0?'+':'')+props.deltaFmt(delta))
+        )
       ),
       e('input',{type:'range',min:props.min,max:props.max,step:props.step,value:props.value,onChange:function(ev){props.onChange(parseFloat(ev.target.value));},style:{width:'100%'}}),
       e('div',{style:{display:'flex',justifyContent:'space-between',fontSize:8,color:T.muted,marginTop:1}},
@@ -519,16 +586,31 @@ function WhatIfSliders({diesel,setDiesel,stumpageAsk,setStumpageAsk,mcActual,set
         fontSize:8,color:T.text2,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:3,letterSpacing:'0.1em'
       }},e(IconRefresh,{size:9,color:T.text2}),' RESET')
     ),
-    Slider({label:'DIESEL',value:diesel,min:2.50,max:5.50,step:0.10,fmt:function(v){return '$'+v.toFixed(2)+'/gal';},onChange:setDiesel}),
-    Slider({label:'STUMPAGE ASK',value:stumpageAsk,min:100,max:400,step:5,fmt:function(v){return '$'+v+'/MBF';},onChange:setStumpageAsk}),
-    Slider({label:'ACTUAL MC',value:mcActual,min:35,max:65,step:1,fmt:function(v){return v+'%';},onChange:setMcActual})
+    Slider({label:'DIESEL',value:diesel,min:2.50,max:5.50,step:0.10,dflt:defaults.diesel,fmt:function(v){return '$'+v.toFixed(2)+'/gal';},deltaFmt:function(d){return (d>0?'+':'')+d.toFixed(2);},onChange:setDiesel}),
+    Slider({label:'STUMPAGE ASK',value:stumpageAsk,min:100,max:400,step:5,dflt:defaults.stumpageAsk,fmt:function(v){return '$'+v+'/MBF';},deltaFmt:function(d){return (d>0?'+':'')+d;},onChange:setStumpageAsk}),
+    Slider({label:'ACTUAL MC',value:mcActual,min:35,max:65,step:1,dflt:defaults.mcActual,fmt:function(v){return v+'%';},deltaFmt:function(d){return (d>0?'+':'')+d+'%';},onChange:setMcActual})
   );
 }
 
 // --- CTA SCREEN ---
-function CTAScreen({onBack}) {
+function CTAScreen({onBack, mill}) {
+  var paybackMonths = mill && mill.moisture.annual > 0 ? Math.round(parseFloat(FSOT.improvement.cost.replace(/[^0-9.]/g,'')) / (mill.moisture.annual / 12) * 10) / 10 : null;
   return e('div',{style:{padding:'40px 0',flex:1,display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'flex-start'}},
     e('div',{style:{fontSize:10,color:T.accent,letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:8}},'KYTHEREX'),
+    mill && e('div',{style:{marginBottom:24,padding:'12px 0',borderBottom:'1px solid '+T.rule}},
+      e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em',marginBottom:6}},'FOR '+mill.name.toUpperCase()),
+      e('div',{style:{display:'flex',gap:16,alignItems:'baseline'}},
+        e('div',null,
+          e('div',{style:{fontSize:22,fontWeight:800,color:T.red}},'$'+mill.moisture.annual.toLocaleString()),
+          e('div',{style:{fontSize:9,color:T.text2}},'Annual moisture waste detected')
+        ),
+        e('div',{style:{width:1,height:32,background:T.rule}}),
+        e('div',null,
+          e('div',{style:{fontSize:22,fontWeight:800,color:T.teal}},paybackMonths<1?'<1':paybackMonths+' mo'),
+          e('div',{style:{fontSize:9,color:T.text2}},'Payback at '+FSOT.pricing.display+'/MBF')
+        )
+      )
+    ),
     e('div',{style:{fontSize:22,fontWeight:700,lineHeight:1.3,marginBottom:8}},'This is what procurement intelligence looks like.'),
     e('div',{style:{fontFamily:"'Space Grotesk', sans-serif",fontSize:13,color:T.text2,lineHeight:1.7,marginBottom:32,maxWidth:300}},
       'Everything you just saw runs on public data. Plug in your mill and it gets specific. Sits on top of whatever systems you already run. Nothing to rip out.'
@@ -560,7 +642,7 @@ function CTAScreen({onBack}) {
     e('div',{style:{marginBottom:24}},
       e('div',{style:{fontSize:10,color:T.muted,letterSpacing:'0.1em',marginBottom:8}},'THE GAP WE FILL'),
       e('div',{style:{fontFamily:"'Space Grotesk', sans-serif",fontSize:12,color:T.text2,lineHeight:1.6}},
-        '200-400 mid-market US sawmills. Zero predictive analytics tools. 70-75% of operating costs are log procurement. 43 hrs/week wasted on manual admin. Only 41% use any dedicated software.'
+        '800-1,000 commercial US sawmills. Zero predictive analytics tools. 70-75% of operating costs are log procurement. 43 hrs/week wasted on manual admin. Only 41% use any dedicated software.'
       )
     ),
     e('div',{style:{width:'100%',maxWidth:300,marginBottom:24,borderBottom:'1px solid '+T.rule,paddingBottom:24}},
@@ -728,6 +810,16 @@ function CompetitionView({season}) {
 
 var DEFAULTS = {diesel:3.10, stumpageAsk:212, mcActual:55};
 
+function computeRec(mill, season, diesel, stumpageAsk) {
+  var adjHaul = Math.round(mill.cost.haul * season.mult);
+  var adjDelivered = stumpageAsk + mill.cost.logging + adjHaul;
+  var dieselDelta = (diesel - 3.10) * 4.0;
+  var finalDelivered = adjDelivered + Math.round(dieselDelta);
+  var pTarget = Math.max(40, Math.min(95, mill.mc.pTarget - (season.mult-1)*80 + (stumpageAsk<212?8:-5)));
+  var rec = pTarget >= 65 ? "BID" : pTarget >= 50 ? "CAUTIOUS" : "PASS";
+  return {rec:rec, pTarget:pTarget, finalDelivered:finalDelivered};
+}
+
 function App() {
   var _s = useState(0); var millIdx=_s[0]; var setMillIdx=_s[1];
   var _s2 = useState(0); var seasonIdx=_s2[0]; var setSeasonIdx=_s2[1];
@@ -739,6 +831,7 @@ function App() {
   var _s8 = useState(212); var stumpageAsk=_s8[0]; var setStumpageAsk=_s8[1];
   var _s9 = useState(55); var mcActual=_s9[0]; var setMcActual=_s9[1];
   var _s10 = useState(null); var tapFips=_s10[0]; var setTapFips=_s10[1];
+  var _s11 = useState(function(){var s={}; s[0]=true; return s;}); var viewedMills=_s11[0]; var setViewedMills=_s11[1];
   var tapTimerRef = useRef(null);
   var containerRef = useRef(null);
 
@@ -751,7 +844,7 @@ function App() {
   function handleSelectMill(id) {
     var idx = -1;
     MILLS.forEach(function(m,i){ if(m.id===id) idx=i; });
-    if(idx>=0) { setMillIdx(idx); setSelectedCounty(null); setDrawerOpen(false); scrollTop(); }
+    if(idx>=0) { setMillIdx(idx); setSelectedCounty(null); setDrawerOpen(false); scrollTop(); setViewedMills(function(prev){var n=Object.assign({},prev);n[idx]=true;return n;}); }
   }
 
   function handleSelectCounty(c) {
@@ -763,7 +856,7 @@ function App() {
     if(selectedCounty) setDrawerOpen(true);
   },[selectedCounty]);
 
-  return e('div',{style:{background:T.bg,color:T.text,height:'100dvh',maxWidth:480,margin:'0 auto',position:'relative',display:'flex',flexDirection:'column'}},
+  return e('div',{className:'kx-app',style:{background:T.bg,color:T.text,height:'100dvh',maxWidth:480,margin:'0 auto',position:'relative',display:'flex',flexDirection:'column'}},
     // HEADER
     e('div',{style:{padding:'12px 16px 8px',borderBottom:'1px solid '+T.rule,flexShrink:0}},
       e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}},
@@ -801,20 +894,26 @@ function App() {
         })
       ),
       (view==="product" || view==="competition") && e('div',{style:{display:'flex',gap:6}},
-        view==="product" && e('select',{value:millIdx,onChange:function(ev){setMillIdx(parseInt(ev.target.value));setSelectedCounty(null);setDrawerOpen(false);},style:{flex:2,fontSize:10}},
+        view==="product" && e('select',{value:millIdx,onChange:function(ev){var v=parseInt(ev.target.value);setMillIdx(v);setSelectedCounty(null);setDrawerOpen(false);setViewedMills(function(prev){var n=Object.assign({},prev);n[v]=true;return n;});},style:{flex:2,fontSize:10}},
           MILLS.map(function(m,i){return e('option',{key:i,value:i},m.name+' ('+m.city+', '+m.state+')');})
         ),
         e('select',{value:seasonIdx,onChange:function(ev){setSeasonIdx(parseInt(ev.target.value));},style:{flex:1,fontSize:10}},
           SEASONS.map(function(s,i){return e('option',{key:i,value:i},s.label);})
         )
+      ),
+      season.id!=="normal" && e('div',{style:{fontSize:8,color:T.red,padding:'4px 0',letterSpacing:'0.05em'}},
+        season.id==="mud"?'Mud season: +50% haul costs, procurement range contracts 35%':
+        season.id==="winter"?'Winter: +20% haul costs, range contracts 15%':
+        'Frozen ground: +5% haul costs, range expands 5%'
       )
     ),
 
     // CONTENT
     e('div',{ref:containerRef,style:{flex:1,overflowY:'auto',paddingBottom:view==="product"?70:20}},
 
-      view==="product" && e('div',null,
-        // MAP
+      view==="product" && e('div',{className:'kx-landscape-split'},
+        // MAP COLUMN (left in landscape)
+        e('div',{className:'kx-map-col'},
         e('div',{style:{borderBottom:'1px solid '+T.rule}},
           e(ProductMap,{mill:mill,season:season,selectedCounty:selectedCounty,onSelectCounty:handleSelectCounty,onSelectMill:handleSelectMill,tapFips:tapFips}),
           e('div',{style:{padding:'4px 16px 6px',display:'flex',justifyContent:'space-between',alignItems:'center'}},
@@ -827,7 +926,7 @@ function App() {
         e('div',{style:{padding:'12px 16px',borderBottom:'1px solid '+T.rule}},
           e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:0}},
             [{l:activeSpecies.label.toUpperCase(),v:'$'+activeSpecies.price,sub:'/MBF',c:T.accent},
-             {l:'SPREAD',v:'$'+(activeSpecies.price - mill.cost.delivered),sub:'/MBF',c:T.teal},
+             {l:'SPREAD',v:(activeSpecies.price - mill.cost.delivered >= 0 ? '$' : '-$') + Math.abs(activeSpecies.price - mill.cost.delivered),sub:'/MBF',c:activeSpecies.price - mill.cost.delivered >= 0 ? T.teal : T.red},
              {l:'MC WASTE',v:'$'+mill.moisture.annual.toLocaleString(),sub:'/yr',c:T.red},
             ].map(function(s,i){return e('div',{key:i,style:{paddingLeft:i>0?10:0,borderLeft:i>0?'1px solid '+T.rule:'none'}},
               e('div',{style:{fontSize:8,color:T.muted,letterSpacing:'0.1em'}},s.l),
@@ -839,21 +938,31 @@ function App() {
           )
         ),
 
+        ), // end kx-map-col
+        // DETAIL COLUMN (right in landscape)
+        e('div',{className:'kx-detail-col'},
         // DRAWER TOGGLE
-        e('div',{onClick:function(){setDrawerOpen(!drawerOpen);},style:{padding:'8px 16px',borderBottom:'1px solid '+T.rule,display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer',background:drawerOpen?T.surfaceHi:'transparent'}},
-          e('span',{style:{fontSize:10,color:drawerOpen?T.accent:T.muted,fontWeight:600,letterSpacing:'0.1em'}},
-            selectedCounty ? 'BID ANALYSIS: '+selectedCounty.name.toUpperCase()+' COUNTY' : 'TAP A COUNTY ON THE MAP FOR BID ANALYSIS'
-          ),
-          e('div',{style:{transform:drawerOpen?'rotate(180deg)':'none',transition:'transform 0.15s'}},
-            e(IconChev,{size:14,color:drawerOpen?T.accent:T.muted})
-          )
-        ),
+        (function(){
+          var recInfo = selectedCounty ? computeRec(mill, season, diesel, stumpageAsk) : null;
+          var recColor = recInfo ? (recInfo.rec==="BID"?T.teal:recInfo.rec==="CAUTIOUS"?T.yellow:T.red) : null;
+          return e('div',{onClick:function(){setDrawerOpen(!drawerOpen);},style:{padding:'8px 16px',borderBottom:'1px solid '+T.rule,display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer',background:drawerOpen?T.surfaceHi:'transparent'}},
+            e('span',{style:{fontSize:10,color:drawerOpen?T.accent:T.muted,fontWeight:600,letterSpacing:'0.1em'}},
+              selectedCounty ? 'BID ANALYSIS: '+selectedCounty.name.toUpperCase()+' COUNTY' : 'TAP A COUNTY ON THE MAP FOR BID ANALYSIS'
+            ),
+            e('div',{style:{display:'flex',alignItems:'center',gap:6}},
+              recInfo && !drawerOpen && e('span',{style:{fontSize:8,fontWeight:800,padding:'2px 6px',background:recColor+'20',border:'1px solid '+recColor,color:recColor,letterSpacing:'0.1em'},role:'status','aria-label':'Bid recommendation: '+recInfo.rec},recInfo.rec),
+              e('div',{style:{transform:drawerOpen?'rotate(180deg)':'none',transition:'transform 0.15s'}},
+                e(IconChev,{size:14,color:drawerOpen?T.accent:T.muted})
+              )
+            )
+          );
+        })(),
 
         // DRAWER CONTENT
         drawerOpen && e('div',{style:{padding:'12px 16px',borderBottom:'1px solid '+T.rule,background:T.surface}},
           selectedCounty ?
             e('div',null,
-              e(BidCard,{mill:mill,county:selectedCounty,season:season,diesel:diesel,stumpageAsk:stumpageAsk,mcActual:mcActual}),
+              e(BidCard,{mill:mill,county:selectedCounty,season:season,diesel:diesel,stumpageAsk:stumpageAsk,mcActual:mcActual,species:activeSpecies}),
               e(WhatIfSliders,{diesel:diesel,setDiesel:setDiesel,stumpageAsk:stumpageAsk,setStumpageAsk:setStumpageAsk,mcActual:mcActual,setMcActual:setMcActual,defaults:DEFAULTS})
             ) :
             e('div',{style:{padding:'20px 0',textAlign:'center'}},
@@ -901,14 +1010,18 @@ function App() {
 
         // Footer
         e('div',{style:{padding:'12px 16px',borderTop:'1px solid '+T.rule}},
-          e('div',{style:{fontSize:10,color:T.muted,letterSpacing:'0.15em'}},'STRATHEX, INC.'),
+          e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center'}},
+            e('div',{style:{fontSize:10,color:T.muted,letterSpacing:'0.15em'}},'STRATHEX, INC.'),
+            e('div',{style:{fontSize:8,color:T.accent,fontWeight:600}},'Explored: '+Object.keys(viewedMills).length+' of '+MILLS.length+' mills')
+          ),
           e('div',{style:{fontSize:10,color:T.text2,marginTop:4}},'Built in Montana, for Montana.'),
           e('div',{style:{fontSize:9,color:T.muted,marginTop:4}},'Sources: USDA FIA, BBER Q1 2025, MT DOR FY2023, IDL Apr 2025, WA DNR FY2025')
         )
+        ) // end kx-detail-col
       ),
 
       view==="cta" && e('div',{style:{padding:'0 20px'}},
-        e(CTAScreen,{onBack:function(){setView("product");scrollTop();}})
+        e(CTAScreen,{onBack:function(){setView("product");scrollTop();},mill:mill})
       ),
 
       view==="competition" && e('div',{style:{height:'100%'}},

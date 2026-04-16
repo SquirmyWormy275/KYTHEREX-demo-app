@@ -16,8 +16,10 @@ case "$cmd" in
     ;;
   check-fsot)
     echo "Checking hardcoded financial numbers outside FSOT block..."
+    fsot_start=$(grep -n "FINANCIAL SOURCE OF TRUTH" index.html | head -1 | cut -d: -f1)
+    fsot_end=$((fsot_start + 15))
     matches=$(grep -nE '\$0\.(25|50|75)|10-25x|\$116K|\$290K|\$12,500' index.html | grep -v "FSOT = " || true)
-    non_fsot=$(echo "$matches" | awk -F: '$1 < 98 || $1 > 105')
+    non_fsot=$(echo "$matches" | awk -F: -v s="$fsot_start" -v e="$fsot_end" '$1 < s || $1 > e')
     if [ -n "$non_fsot" ]; then
       echo "DRIFT detected outside FSOT block:"
       echo "$non_fsot"

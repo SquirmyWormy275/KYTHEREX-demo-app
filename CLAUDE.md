@@ -21,7 +21,7 @@ All numbers match Financial Source of Truth v2.1:
 - ROI: 10-25x (NOT 3x-60x)
 - Savings: $116K-$290K per mill (at 25K MBF/yr, 1-2.5% improvement)
 - Avg annual cost: ~$12,500
-- TAM: $2.5M-$5M national (NOT $30M+)
+- TAM: $15M national
 
 ## Design System
 Always read DESIGN.md before making any visual or UI decisions.
