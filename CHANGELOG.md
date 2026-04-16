@@ -6,6 +6,33 @@ This project tracks a single-file React-from-CDN demo, so entries are coarse.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-04-16
+
+### Added
+- Species selector now flows into bid card math (species spread, market price reference).
+- County FIA volume, haul zone badge (PROFITABLE/MARGINAL/UNECONOMIC), and estimated
+  haul distance shown in bid card header when a county is selected.
+- Personalized CTA screen shows mill-specific moisture waste and payback period.
+- Haul route dashed line drawn on SVG map from mill to selected county with distance label.
+- Season overlay tints the SVG map (brown for mud, blue for winter, ice for frozen).
+- Slider delta indicators show +/- change from defaults on each what-if control.
+- Monte Carlo histogram shifts based on delivered cost changes, highlights current
+  scenario bar, and includes "ILLUSTRATIVE MODEL" disclaimer.
+- Season impact summary text below season selector for non-normal seasons.
+- County hover tooltips (SVG title elements) show county name and FIA volume on desktop.
+- Responsive landscape mode splits map and detail columns side-by-side (640px+ landscape).
+- Bid recommendation badge (BID/CAUTIOUS/PASS) visible in collapsed drawer toggle.
+- Explore summary counter in footer tracks how many of the 5 mills have been viewed.
+- Shared `computeRec()` function extracts recommendation logic for reuse.
+
+### Changed
+- Economics bar spread now shows negative values in red when species price < delivered cost.
+- Service worker cache bumped to v4.
+
+### Fixed
+- Division-by-zero guard on CTA payback calculation when moisture waste is zero.
+- Histogram current-bin formula corrected (was using dimensional mismatch with p10*10).
+
 ## [0.4.1] — 2026-04-16
 
 ### Added
