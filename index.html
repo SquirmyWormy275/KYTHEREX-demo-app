@@ -71,6 +71,8 @@
   }
   select:focus { outline: 1px solid var(--accent); }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  @keyframes tapFlash { 0%{r:8;opacity:0.8} 100%{r:20;opacity:0} }
+  @keyframes spin { to{transform:rotate(360deg)} }
 </style>
 </head>
 <body>
@@ -240,8 +242,27 @@ const COUNTIES = [
   {name:"Kootenai",st:"ID",fips:"16055",vol:2800,cx:80,cy:30},
 ];
 
+// --- ALL MILL MARKERS (top-level so count is accessible) ---
+const ALL_MILLS = [
+  {x:200,y:25,name:"Stoltze",st:"MT",id:"MT-001"},
+  {x:180,y:90,name:"Sun Mtn",st:"MT",id:"MT-005"},
+  {x:120,y:55,name:"Thompson R.",st:"MT",id:"MT-007"},
+  {x:280,y:118,name:"Livingston",st:"MT",id:"MT-006"},
+  {x:240,y:45,name:"Kalispell",st:"MT",id:"MT-003"},
+  {x:160,y:72,name:"Pyramid Mtn",st:"MT",id:"MT-004"},
+  {x:55,y:95,name:"IFG Lewis.",st:"ID",id:"ID-001"},
+  {x:60,y:108,name:"Clearwater",st:"ID",id:"ID-002"},
+  {x:70,y:55,name:"IFG St.Mar",st:"ID",id:"ID-003"},
+  {x:85,y:40,name:"Stimson",st:"ID",id:"ID-004"},
+  {x:45,y:75,name:"Bennett",st:"ID",id:"ID-005"},
+  {x:20,y:75,name:"SPI Shelton",st:"WA",id:"WA-003"},
+  {x:10,y:60,name:"Weyerh. LV",st:"WA",id:"WA-001"},
+  {x:15,y:95,name:"Boise Cas.",st:"WA",id:"WA-002"},
+  {x:330,y:140,name:"RY Timber",st:"OR",id:"OR-001"},
+];
+
 // --- MAP COMPONENT ---
-function ProductMap({mill, season, selectedCounty, onSelectCounty}) {
+function ProductMap({mill, season, selectedCounty, onSelectCounty, onSelectMill, tapFips}) {
   const w=360, h=220;
   const cx = mill.mapCenter.x, cy = mill.mapCenter.y;
   const rs = season.ringScale;
@@ -264,23 +285,7 @@ function ProductMap({mill, season, selectedCounty, onSelectCounty}) {
   const ringRadii = baseRadii.map(function(r){return r * rs;});
   const ringColors = [T.green,T.green,T.yellow,T.yellow,T.red,T.red];
 
-  const allMills = [
-    {x:200,y:25,name:"Stoltze",st:"MT",id:"MT-001"},
-    {x:180,y:90,name:"Sun Mtn",st:"MT",id:"MT-005"},
-    {x:120,y:55,name:"Thompson R.",st:"MT",id:"MT-007"},
-    {x:280,y:118,name:"Livingston",st:"MT",id:"MT-006"},
-    {x:240,y:45,name:"Kalispell",st:"MT",id:"MT-003"},
-    {x:160,y:72,name:"Pyramid Mtn",st:"MT",id:"MT-004"},
-    {x:55,y:95,name:"IFG Lewis.",st:"ID",id:"ID-001"},
-    {x:60,y:108,name:"Clearwater",st:"ID",id:"ID-002"},
-    {x:70,y:55,name:"IFG St.Mar",st:"ID",id:"ID-003"},
-    {x:85,y:40,name:"Stimson",st:"ID",id:"ID-004"},
-    {x:45,y:75,name:"Bennett",st:"ID",id:"ID-005"},
-    {x:20,y:75,name:"SPI Shelton",st:"WA",id:"WA-003"},
-    {x:10,y:60,name:"Weyerh. LV",st:"WA",id:"WA-001"},
-    {x:15,y:95,name:"Boise Cas.",st:"WA",id:"WA-002"},
-    {x:330,y:140,name:"RY Timber",st:"OR",id:"OR-001"},
-  ];
+  var allMills = ALL_MILLS;
 
   var maxVol = 0;
   for (var ci=0; ci<COUNTIES.length; ci++) { if(COUNTIES[ci].vol>maxVol) maxVol=COUNTIES[ci].vol; }
@@ -299,19 +304,23 @@ function ProductMap({mill, season, selectedCounty, onSelectCounty}) {
       var dx = c.cx-cx, dy = c.cy-cy;
       var dist = Math.sqrt(dx*dx+dy*dy);
       var bColor = dist<38*rs ? T.green : dist<72*rs ? T.yellow : T.red;
+      var isTapped = tapFips===c.fips;
       return e('g',{key:'fia'+i,onClick:function(ev){ev.stopPropagation();onSelectCounty(isSel?null:c);},style:{cursor:'pointer'}},
+        isTapped && e('circle',{cx:c.cx,cy:c.cy,r:8,fill:T.accent,opacity:0,style:{animation:'tapFlash 0.4s ease-out forwards'}}),
         e('circle',{cx:c.cx,cy:c.cy,r:r,fill:bColor,fillOpacity:isSel?0.4:0.15,stroke:isSel?T.accent:bColor,strokeWidth:isSel?1.5:0.5}),
         r>6 && e('text',{x:c.cx,y:c.cy+2,textAnchor:'middle',fill:T.text2,fontSize:4.5,fontFamily:'JetBrains Mono'},c.name.substring(0,6))
       );
     }),
     allMills.map(function(m,i){
       var isSelected = m.id===mill.id;
+      var hasData = MILLS.some(function(mm){return mm.id===m.id;});
       var col = stColors[m.st]||T.text;
-      return e('g',{key:'m'+i},
+      return e('g',{key:'m'+i, onClick:hasData&&!isSelected?function(ev){ev.stopPropagation();onSelectMill(m.id);}:undefined, style:{cursor:hasData&&!isSelected?'pointer':'default'}},
         isSelected ?
           e('rect',{x:m.x-4,y:m.y-4,width:8,height:8,fill:T.accent,style:{animation:'pulse 2s infinite'}}) :
-          e('rect',{x:m.x-2,y:m.y-2,width:4,height:4,fill:col,opacity:0.7}),
-        isSelected && e('text',{x:m.x,y:m.y-7,textAnchor:'middle',fill:T.accent,fontSize:6,fontWeight:700,fontFamily:'JetBrains Mono'},mill.city.toUpperCase())
+          e('rect',{x:m.x-(hasData?3:2),y:m.y-(hasData?3:2),width:hasData?6:4,height:hasData?6:4,fill:hasData?col:col,opacity:hasData?0.9:0.4}),
+        isSelected && e('text',{x:m.x,y:m.y-7,textAnchor:'middle',fill:T.accent,fontSize:6,fontWeight:700,fontFamily:'JetBrains Mono'},mill.city.toUpperCase()),
+        !isSelected && hasData && e('text',{x:m.x,y:m.y-5,textAnchor:'middle',fill:col,fontSize:4,fontFamily:'JetBrains Mono',opacity:0.7},m.name)
       );
     }),
     e('text',{x:8,y:12,fill:T.muted+'80',fontSize:6,fontFamily:'JetBrains Mono'},'IDAHO'),
@@ -337,7 +346,7 @@ function ProductMap({mill, season, selectedCounty, onSelectCounty}) {
 }
 
 // --- SUPPLY INTELLIGENCE PANEL ---
-function SupplyPanel({mill}) {
+function SupplyPanel({mill, onSelectMill}) {
   function Bar(props) {
     return e('div',{style:{marginBottom:6}},
       e('div',{style:{display:'flex',justifyContent:'space-between',fontSize:10,marginBottom:2}},
@@ -382,10 +391,15 @@ function SupplyPanel({mill}) {
     ),
     e('div',null,
       e('div',{style:{fontSize:9,color:T.muted,letterSpacing:'0.1em',marginBottom:6}},'COMPETING MILLS'),
-      mill.competing.map(function(c,i){return e('div',{key:i,style:{display:'flex',justifyContent:'space-between',padding:'4px 0',borderBottom:i<mill.competing.length-1?'1px solid '+T.rule:'none'}},
-        e('span',{style:{fontSize:10,color:T.text2}},c.name),
-        e('span',{style:{fontSize:10,fontWeight:600,color:c.overlap>25?T.red:T.yellow}},c.overlap+'% overlap')
-      );})
+      mill.competing.map(function(c,i){
+        var matchIdx = -1;
+        MILLS.forEach(function(mm,mi){ if(mm.name===c.name) matchIdx=mi; });
+        var canNav = matchIdx>=0;
+        return e('div',{key:i, onClick:canNav?function(){onSelectMill(MILLS[matchIdx].id);}:undefined, style:{display:'flex',justifyContent:'space-between',padding:'4px 0',borderBottom:i<mill.competing.length-1?'1px solid '+T.rule:'none',cursor:canNav?'pointer':'default'}},
+          e('span',{style:{fontSize:10,color:canNav?T.teal:T.text2,textDecoration:canNav?'underline':'none'}},c.name),
+          e('span',{style:{fontSize:10,fontWeight:600,color:c.overlap>25?T.red:T.yellow}},c.overlap+'% overlap')
+        );
+      })
     )
   );
 }
@@ -483,7 +497,7 @@ function BidCard({mill, county, season, diesel, stumpageAsk, mcActual}) {
 }
 
 // --- WHAT-IF SLIDERS ---
-function WhatIfSliders({diesel,setDiesel,stumpageAsk,setStumpageAsk,mcActual,setMcActual}) {
+function WhatIfSliders({diesel,setDiesel,stumpageAsk,setStumpageAsk,mcActual,setMcActual,defaults}) {
   function Slider(props) {
     return e('div',{style:{marginBottom:10}},
       e('div',{style:{display:'flex',justifyContent:'space-between',fontSize:9,marginBottom:3}},
@@ -496,8 +510,15 @@ function WhatIfSliders({diesel,setDiesel,stumpageAsk,setStumpageAsk,mcActual,set
       )
     );
   }
+  var isDefault = diesel===defaults.diesel && stumpageAsk===defaults.stumpageAsk && mcActual===defaults.mcActual;
   return e('div',{style:{padding:'8px 0',borderTop:'1px solid '+T.rule}},
-    e('div',{style:{fontSize:9,color:T.accent,letterSpacing:'0.15em',fontWeight:600,marginBottom:8}},'WHAT-IF CONTROLS'),
+    e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}},
+      e('div',{style:{fontSize:9,color:T.accent,letterSpacing:'0.15em',fontWeight:600}},'WHAT-IF CONTROLS'),
+      !isDefault && e('button',{onClick:function(){setDiesel(defaults.diesel);setStumpageAsk(defaults.stumpageAsk);setMcActual(defaults.mcActual);},style:{
+        background:'transparent',border:'1px solid '+T.rule,padding:'3px 8px',
+        fontSize:8,color:T.text2,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:3,letterSpacing:'0.1em'
+      }},e(IconRefresh,{size:9,color:T.text2}),' RESET')
+    ),
     Slider({label:'DIESEL',value:diesel,min:2.50,max:5.50,step:0.10,fmt:function(v){return '$'+v.toFixed(2)+'/gal';},onChange:setDiesel}),
     Slider({label:'STUMPAGE ASK',value:stumpageAsk,min:100,max:400,step:5,fmt:function(v){return '$'+v+'/MBF';},onChange:setStumpageAsk}),
     Slider({label:'ACTUAL MC',value:mcActual,min:35,max:65,step:1,fmt:function(v){return v+'%';},onChange:setMcActual})
@@ -585,9 +606,10 @@ const COMPETITION_SALES = [
   {id:"DEMO-018", name:"Helena-Lewis & Clark - Lincoln", lat:47.05, lon:-112.35, volume_mbf:1800, species:"Douglas-fir", agency:"USFS",   in_rings:{},                                                                        status:"unreachable", by:[]},
 ];
 
-function CompetitionView() {
+function CompetitionView({season}) {
   var containerRef = useRef(null);
   var stateRef = useRef(null);
+  var _loading = useState(true); var mapLoading=_loading[0]; var setMapLoading=_loading[1];
   var _v = useState({"MT-003":true,"MT-007":true,"MT-005":true});
   var visible=_v[0]; var setVisible=_v[1];
   var _s = useState(true);  var showSales=_s[0];      var setShowSales=_s[1];
@@ -597,9 +619,11 @@ function CompetitionView() {
     if(!containerRef.current || stateRef.current) return;
     if(typeof L === "undefined") return;
     var map = L.map(containerRef.current, {zoomControl:true, attributionControl:true});
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    var tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       attribution:'&copy; OpenStreetMap &copy; CARTO', subdomains:'abcd', maxZoom:19
     }).addTo(map);
+    tileLayer.on('load', function(){ setMapLoading(false); });
+    setTimeout(function(){ setMapLoading(false); }, 3000);
     map.fitBounds([[45.6,-116.2],[49.0,-112.0]]);
     stateRef.current = {map:map, layers:[]};
     setTimeout(function(){ if(stateRef.current) stateRef.current.map.invalidateSize(); }, 120);
@@ -613,10 +637,11 @@ function CompetitionView() {
     s.layers = [];
     COMPETITION_MILLS.forEach(function(m){
       if(!visible[m.id]) return;
+      var rs = season ? season.ringScale : 1.0;
       m.rings.forEach(function(ring){
         var fo = ring.cls==="profitable"?0.20:(ring.cls==="marginal"?0.10:0.04);
         var c = L.circle([m.lat,m.lon], {
-          radius: ring.r*1609.34, color:m.color, weight:1.5, opacity:0.55,
+          radius: ring.r*1609.34*rs, color:m.color, weight:1.5, opacity:0.55,
           fillColor:m.color, fillOpacity:fo
         }).addTo(s.map);
         s.layers.push(c);
@@ -649,7 +674,7 @@ function CompetitionView() {
         s.layers.push(sm);
       });
     }
-  }, [visible, showSales, contestedOnly]);
+  }, [visible, showSales, contestedOnly, season]);
 
   function toggle(id){ var n=Object.assign({},visible); n[id]=!n[id]; setVisible(n); }
 
@@ -685,13 +710,23 @@ function CompetitionView() {
         }}, contestedOnly?'CONTESTED ONLY':'ALL SALES')
       )
     ),
-    e('div',{ref:containerRef, style:{flex:1, minHeight:320, background:'#f5f5f0'}}),
+    e('div',{style:{flex:1, minHeight:320, position:'relative'}},
+      e('div',{ref:containerRef, style:{width:'100%',height:'100%', background:'#f5f5f0'}}),
+      mapLoading && e('div',{style:{position:'absolute',top:0,left:0,right:0,bottom:0,background:'rgba(10,12,11,0.85)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:1000}},
+        e('div',{style:{width:24,height:24,border:'2px solid '+T.rule,borderTop:'2px solid '+T.accent,borderRadius:'50%',animation:'spin 0.8s linear infinite'}}),
+        e('div',{style:{fontSize:9,color:T.muted,marginTop:8,letterSpacing:'0.1em'}},'LOADING MAP...')
+      ),
+      season && season.id!=="normal" && e('div',{style:{position:'absolute',top:8,left:8,padding:'4px 8px',background:T.red+'30',border:'1px solid '+T.red,fontSize:8,fontWeight:700,color:T.red,letterSpacing:'0.1em',zIndex:500}},
+        season.id==="mud"?'MUD SEASON -35% RANGE':season.id==="winter"?'WINTER -15% RANGE':'FROZEN +5%')
+    ),
     e('div',{style:{padding:'8px 16px',borderTop:'1px solid '+T.rule,fontSize:9,color:T.muted,display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}},
       e('span',null, '3 mills - 18 sales - ' + contestedCount + ' contested'),
       e('span',{style:{color:T.red,fontWeight:600}}, 'TAP A SALE')
     )
   );
 }
+
+var DEFAULTS = {diesel:3.10, stumpageAsk:212, mcActual:55};
 
 function App() {
   var _s = useState(0); var millIdx=_s[0]; var setMillIdx=_s[1];
@@ -703,12 +738,26 @@ function App() {
   var _s7 = useState(3.10); var diesel=_s7[0]; var setDiesel=_s7[1];
   var _s8 = useState(212); var stumpageAsk=_s8[0]; var setStumpageAsk=_s8[1];
   var _s9 = useState(55); var mcActual=_s9[0]; var setMcActual=_s9[1];
+  var _s10 = useState(null); var tapFips=_s10[0]; var setTapFips=_s10[1];
+  var tapTimerRef = useRef(null);
   var containerRef = useRef(null);
 
   var mill = MILLS[millIdx];
   var season = SEASONS[seasonIdx];
+  var activeSpecies = SPECIES.find(function(s){return s.id===speciesId;}) || SPECIES[0];
 
   function scrollTop(){if(containerRef.current)containerRef.current.scrollTop=0;}
+
+  function handleSelectMill(id) {
+    var idx = -1;
+    MILLS.forEach(function(m,i){ if(m.id===id) idx=i; });
+    if(idx>=0) { setMillIdx(idx); setSelectedCounty(null); setDrawerOpen(false); scrollTop(); }
+  }
+
+  function handleSelectCounty(c) {
+    if(c) { if(tapTimerRef.current) clearTimeout(tapTimerRef.current); setTapFips(c.fips); tapTimerRef.current=setTimeout(function(){setTapFips(null);tapTimerRef.current=null;},400); }
+    setSelectedCounty(c);
+  }
 
   useEffect(function(){
     if(selectedCounty) setDrawerOpen(true);
@@ -718,17 +767,30 @@ function App() {
     // HEADER
     e('div',{style:{padding:'12px 16px 8px',borderBottom:'1px solid '+T.rule,flexShrink:0}},
       e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}},
-        e('div',{onClick:view!=="product"?function(){setView("product");scrollTop();}:undefined,style:{cursor:view!=="product"?'pointer':'default'}},
-          e('div',{style:{fontSize:14,fontWeight:700,letterSpacing:'0.2em',color:T.accent}},'KYTHEREX'),
-          e('div',{style:{fontSize:8,fontWeight:400,letterSpacing:'0.12em',color:T.muted,marginTop:1}},'TIMBER PROCUREMENT ANALYTICS')
-        ),
+        view!=="product" ?
+          e('div',{style:{display:'flex',alignItems:'center',gap:8}},
+            e('button',{onClick:function(){setView("product");scrollTop();},style:{
+              background:'transparent', border:'1px solid '+T.rule, padding:'6px 10px',
+              color:T.text2, fontSize:10, fontWeight:600, cursor:'pointer',
+              display:'flex', alignItems:'center', gap:4
+            }}, e(IconLeft,{size:12,color:T.accent}), 'MAP'),
+            e('div',null,
+              e('div',{style:{fontSize:14,fontWeight:700,letterSpacing:'0.2em',color:T.accent}},'KYTHEREX'),
+              e('div',{style:{fontSize:8,fontWeight:400,letterSpacing:'0.12em',color:T.muted,marginTop:1}},
+                view==="competition"?'COMPETITION ANALYSIS':'PRICING & CONTACT')
+            )
+          ) :
+          e('div',null,
+            e('div',{style:{fontSize:14,fontWeight:700,letterSpacing:'0.2em',color:T.accent}},'KYTHEREX'),
+            e('div',{style:{fontSize:8,fontWeight:400,letterSpacing:'0.12em',color:T.muted,marginTop:1}},'TIMBER PROCUREMENT ANALYTICS')
+          ),
         e('div',{style:{display:'flex',alignItems:'center',gap:4,fontSize:9,color:T.muted}},
           e(IconRefresh,{size:9}),' BBER Q1 2025'
         )
       ),
       // View switcher (Map | Competition)
       e('div',{style:{display:'flex',gap:4,marginBottom:view==="product"?6:0}},
-        [{id:"product",label:"MAP"},{id:"competition",label:"COMPETITION"}].map(function(t){
+        [{id:"product",label:"MAP"},{id:"competition",label:"COMPETITION"},{id:"cta",label:"PRICING"}].map(function(t){
           var on = view===t.id;
           return e('button',{key:t.id,onClick:function(){setView(t.id);scrollTop();},style:{
             background: on?T.accent:T.surface, color: on?'#0A0C0B':T.muted,
@@ -738,8 +800,8 @@ function App() {
           }}, t.label);
         })
       ),
-      view==="product" && e('div',{style:{display:'flex',gap:6}},
-        e('select',{value:millIdx,onChange:function(ev){setMillIdx(parseInt(ev.target.value));setSelectedCounty(null);setDrawerOpen(false);},style:{flex:2,fontSize:10}},
+      (view==="product" || view==="competition") && e('div',{style:{display:'flex',gap:6}},
+        view==="product" && e('select',{value:millIdx,onChange:function(ev){setMillIdx(parseInt(ev.target.value));setSelectedCounty(null);setDrawerOpen(false);},style:{flex:2,fontSize:10}},
           MILLS.map(function(m,i){return e('option',{key:i,value:i},m.name+' ('+m.city+', '+m.state+')');})
         ),
         e('select',{value:seasonIdx,onChange:function(ev){setSeasonIdx(parseInt(ev.target.value));},style:{flex:1,fontSize:10}},
@@ -754,18 +816,18 @@ function App() {
       view==="product" && e('div',null,
         // MAP
         e('div',{style:{borderBottom:'1px solid '+T.rule}},
-          e(ProductMap,{mill:mill,season:season,selectedCounty:selectedCounty,onSelectCounty:setSelectedCounty}),
+          e(ProductMap,{mill:mill,season:season,selectedCounty:selectedCounty,onSelectCounty:handleSelectCounty,onSelectMill:handleSelectMill,tapFips:tapFips}),
           e('div',{style:{padding:'4px 16px 6px',display:'flex',justifyContent:'space-between',alignItems:'center'}},
             e('span',{style:{fontSize:8,color:T.muted}},mill.city+', '+mill.state+' | Profit rings + FIA inventory | Tap county for bid analysis'),
-            e('span',{style:{fontSize:8,color:T.accent,fontWeight:600}},'36 mills mapped')
+            e('span',{style:{fontSize:8,color:T.accent,fontWeight:600}},ALL_MILLS.length+' mills mapped')
           )
         ),
 
         // ECONOMICS AT A GLANCE
         e('div',{style:{padding:'12px 16px',borderBottom:'1px solid '+T.rule}},
           e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:0}},
-            [{l:'DELIVERED',v:'$'+mill.cost.delivered,sub:'/MBF',c:T.accent},
-             {l:'SPREAD',v:'$'+mill.cost.spread,sub:'/MBF',c:T.teal},
+            [{l:activeSpecies.label.toUpperCase(),v:'$'+activeSpecies.price,sub:'/MBF',c:T.accent},
+             {l:'SPREAD',v:'$'+(activeSpecies.price - mill.cost.delivered),sub:'/MBF',c:T.teal},
              {l:'MC WASTE',v:'$'+mill.moisture.annual.toLocaleString(),sub:'/yr',c:T.red},
             ].map(function(s,i){return e('div',{key:i,style:{paddingLeft:i>0?10:0,borderLeft:i>0?'1px solid '+T.rule:'none'}},
               e('div',{style:{fontSize:8,color:T.muted,letterSpacing:'0.1em'}},s.l),
@@ -792,7 +854,7 @@ function App() {
           selectedCounty ?
             e('div',null,
               e(BidCard,{mill:mill,county:selectedCounty,season:season,diesel:diesel,stumpageAsk:stumpageAsk,mcActual:mcActual}),
-              e(WhatIfSliders,{diesel:diesel,setDiesel:setDiesel,stumpageAsk:stumpageAsk,setStumpageAsk:setStumpageAsk,mcActual:mcActual,setMcActual:setMcActual})
+              e(WhatIfSliders,{diesel:diesel,setDiesel:setDiesel,stumpageAsk:stumpageAsk,setStumpageAsk:setStumpageAsk,mcActual:mcActual,setMcActual:setMcActual,defaults:DEFAULTS})
             ) :
             e('div',{style:{padding:'20px 0',textAlign:'center'}},
               e(IconTarget,{size:24,color:T.muted}),
@@ -804,7 +866,7 @@ function App() {
         // SUPPLY INTELLIGENCE
         e('div',{style:{padding:'12px 16px'}},
           e('div',{style:{fontSize:9,color:T.accent,letterSpacing:'0.15em',fontWeight:600,marginBottom:12}},'SUPPLY INTELLIGENCE'),
-          e(SupplyPanel,{mill:mill})
+          e(SupplyPanel,{mill:mill,onSelectMill:handleSelectMill})
         ),
 
         // WHAT THIS REPLACES
@@ -850,7 +912,7 @@ function App() {
       ),
 
       view==="competition" && e('div',{style:{height:'100%'}},
-        e(CompetitionView)
+        e(CompetitionView,{season:season})
       )
     ),
 
