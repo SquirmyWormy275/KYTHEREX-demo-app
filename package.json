@@ -1,0 +1,14 @@
+{
+  "name": "kytherex-field-demo-checks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/offline.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -38,11 +38,35 @@ Works on any device with a browser.
 3. Tap "Add to Home Screen"
 4. Tap "Add"
 
-The app launches full-screen and works offline.
+The app launches full-screen. After its first successful online load, the main
+demo and competition controls/overlays work offline. The competition basemap
+retains recently fetched tiles; new map areas may have no basemap while offline.
 
 ## Tech
 
-Single `index.html`. React 18 from CDN. Zero build step. Zero dependencies to install. Hand-rolled SVG icons and map. Runs offline after first load.
+Single `index.html`. React 18 from CDN. Zero build step. Zero dependencies to install. Hand-rolled SVG icons and map. The service worker precaches React, Leaflet, the application and the design
+fonts for offline use. Online launches fetch current HTML; offline launches
+use the last cached version. Runtime caching retains at most 120 assets,
+including recently viewed basemap tiles.
+
+## Maintainer browser checks
+
+The public app still has no build or package-install step. The separate
+maintainer test tools require Node 22 or later:
+
+```bash
+npm ci
+npx playwright install chromium
+npm test
+```
+
+Use `CHROMIUM_EXECUTABLE` to select an existing browser instead of Playwright's
+managed Chromium. The test serves this checkout on loopback and uses disposable
+browser contexts. It checks the GitHub Pages path and a local root path, offline
+launch and competition overlays, actual font/Leaflet precaching, an HTML-only
+update, and a worker update that preserves another project's cache. Screenshots
+and receipts go to ignored `test-results/`. GitHub Actions runs the same check;
+it does not deploy the demo or change a personal browser profile.
 
 ## Updating
 

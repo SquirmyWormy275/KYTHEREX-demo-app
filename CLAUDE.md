@@ -35,7 +35,7 @@ In QA mode, flag any code that doesn't match DESIGN.md.
 CE commands chain multiple skills into gated pipelines. Each phase must pass before
 the next begins. Failures are fixed in-place with atomic commits.
 
-- Full verification (review + QA, no test runner in this project) → invoke ce-verify
+- Full verification (review + QA + offline browser checks) → invoke ce-verify
 - Verified ship (review + QA + ship) → invoke ce-ship
 - Full deploy (review + QA + ship + land) → invoke ce-deploy
 - Hotfix fast lane (ship only) → invoke ce-hotfix
@@ -43,8 +43,10 @@ the next begins. Failures are fixed in-place with atomic commits.
 - Configure CE stack → invoke ce-setup
 
 ### Project-specific notes
-- **No test runner.** This is a single-file React-from-CDN demo. CE pipelines skip the
-  pytest/npm-test phase. QA is browser-based via `/qa` against a local static server.
+- **Browser test runner.** Runtime remains a single-file React-from-CDN demo.
+  Maintainer checks use `npm ci`, `npx playwright install chromium`, and `npm test`.
+  The offline/update check uses isolated contexts and writes to `test-results/`.
+  Use `CHROMIUM_EXECUTABLE` for an existing local browser. See README.md.
 - **Knowledge seed.** Established patterns and solved problems live in `docs/solutions/`.
   The learnings-researcher reads these during `/ce-plan` and `/ce-review`.
 
@@ -62,6 +64,9 @@ the next begins. Failures are fixed in-place with atomic commits.
 - Deploy trigger: automatic on push to main (GitHub Pages picks up within ~30-60s)
 - Deploy status: poll production URL until new `index.html` etag/content is served
 - Health check: production URL returns 200 AND contains expected version/build marker
-- **Service worker caveat:** If `index.html` was changed, bump the cache version in `sw.js`
-  or installed PWAs will continue serving the stale version. See
+- **Service worker updates:** Online navigations refresh HTML and retain it for
+  offline use. Keep cache-version bumps for changed precached assets or worker
+  behavior; the existing hook still bumps it when index.html is staged. Verify
+  `npm test` before shipping. Cache cleanup must affect only `kytherex-demo-*`,
+  never every cache on the shared GitHub Pages origin. See
   `docs/solutions/configuration-issues/pwa-service-worker-cache-staleness.md`.

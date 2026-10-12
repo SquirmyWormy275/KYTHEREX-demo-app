@@ -13,3 +13,7 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Maintainer browser checks
+node_modules/
+test-results/
