@@ -31,3 +31,23 @@ When shipping a change that alters user-facing numbers (pricing, ROI, TAM) or re
 - Treat `sw.js` cache version as part of every release that touches `index.html`.
 - Before a field demo, cold-launch the PWA once with network enabled so it can self-update.
 - If a user reports "the demo shows old numbers," check service-worker cache before suspecting code.
+
+
+## Verified update behavior, 2026-10-11
+
+The worker now uses network-first navigation with the last HTML as the offline
+fallback. An HTML-only server update is visible at the next online launch even
+without a worker-version change. The existing cache-version hook remains useful
+for changed precached resources.
+
+The worker precaches Leaflet and the actual JetBrains Mono/Space Grotesk font
+stylesheet and font files. Font failures do not prevent core installation.
+Runtime caching is bounded, and activation removes only this app's old caches.
+Paths resolve from the registered scope, so local root serving and the Pages
+subdirectory use the same code.
+
+`npm test` exercises installation, offline launch and map overlays, HTML-only
+refresh, and worker updates in disposable Chromium contexts at both paths. It
+also verifies that another project's cache survives activation. Screenshots and
+receipts are kept under ignored `test-results/`; CI uploads them as artifacts.
+The offline basemap covers cached tiles, not every map area.
