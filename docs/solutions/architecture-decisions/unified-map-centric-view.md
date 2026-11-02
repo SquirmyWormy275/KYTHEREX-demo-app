@@ -33,5 +33,10 @@ No tabs. Tap-to-bid interaction collapses navigation into direct manipulation of
 - Tabs forced context switching and hid the strongest demo moment (profit ring contracting under a season change).
 - Single screen forces every feature to earn its pixels.
 
+## Update (v0.3.0 to v0.6.0)
+The app now has a MAP / COMPETITION / PRICING switcher. MAP remains the single map-centric product view
+described above (4 demo mills since v0.6.0, on real county geometry). COMPETITION is the multi-mill
+overlap map; PRICING is the CTA. The "no new tabs" rule still applies to new analytics.
+
 ## Examples
 Adding a new analytic? Decide where it lives in the existing drawer/panel, not as a new tab. If it cannot fit, challenge whether it belongs in the demo at all.

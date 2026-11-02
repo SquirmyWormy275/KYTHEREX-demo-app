@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kytherex-demo-v8';
+const CACHE_NAME = 'kytherex-demo-v9';
 const CACHE_PREFIX = 'kytherex-demo-';
 const RUNTIME_CACHE = `${CACHE_NAME}-runtime`;
 const RUNTIME_LIMIT = 120;

@@ -88,3 +88,5 @@
 | 2026-03-26 | Chartreuse accent (#C8F560) over amber | Polarizing but unforgettable — signals a real design decision in a category where everything is amber/green |
 | 2026-03-26 | Full monospace (JetBrains Mono) | Entire app reads as instrument output. "Measured, not marketed." Short copy means readability tradeoff is minimal. |
 | 2026-03-26 | Cardless hairline layout | Bloomberg terminal density. No card backgrounds, just 1px hairlines and spatial grouping. Increases information density without clutter. |
+| 2026-11-02 | MAP on real county outlines | Hairline county and state boundaries replace decorative contours; county fills tinted by ring zone at low opacity. Labels are haloed against the surface color. |
+| 2026-11-02 | Competition on dark tiles, token colors | CARTO dark basemap; mills in accent / teal / parchment; Leaflet controls and popups restyled with tokens, 0 radius, no shadow. |
